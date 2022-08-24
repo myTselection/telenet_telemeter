@@ -1,0 +1,11 @@
+{
+  "codeowners": ["@myTselection"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/myTselection/telenet_telemeter",
+  "domain": "telenet_telemeter",
+  "iot_class": "Cloud Polling",
+  "name": "Telenet Telemeter",
+  "requirements": ["beautifulsoup4", "html5lib"],
+  "version": "0.0.1"
+}
