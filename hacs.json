@@ -1,5 +1,5 @@
 {
-  "name": "{{ cookiecutter.name }}",
+  "name": "Telenet Telemeter",
   "render_readme": true,
-  "iot_class": "{{ cookiecutter.iot_class }}"
+  "iot_class": "cloud_polling"
 }

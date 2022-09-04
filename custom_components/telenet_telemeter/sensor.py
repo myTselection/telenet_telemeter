@@ -80,42 +80,37 @@ class ComponentData:
         self._data = {}
         self._last_update = None
         self._friendly_name = None
-
+        self._session = TelenetSession()
+        self._telemeter = None
+        
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def _update(self):
-    #FIXME integrate Telenet telemeter data request
         _LOGGER.debug("Fetching stuff for " + NAME)
-        if self._username:
-            text = await get_page(self._username, self.client)
-        else:
-            return
+        if not(self._session):
+            self._session = TelenetSession()
 
-        if text:
-            self._data = parse_tomme_kalender(text)
-            self._last_update = datetime.now()
+        if self._session:
+            self._session.login(self._username, self._password)
+            self._telemeter = self._session.telemter()
 
     async def update(self):
         await self._update()
-        return self._data
+        return self._telemeter
+
 
 
 class Component(Entity):
     def __init__(self, data):
-        self.data = data
-        self._session = TelenetSession()
-        self._telemeter = self._session.telemter()
+        self._data = data
 
     @property
     def state(self):
         """Return the state of the sensor."""
     #FIXME integrate Telenet telemeter data request
-        nxt = self.next_garbage_pickup
-        if nxt is not None:
-            delta = nxt.date() - datetime.today().date()
-            return delta.days
+        return self._data._telemeter
 
     async def async_update(self):
-        await self.data.update()
+        await self._data.update()
 
     @property
     def icon(self) -> str:
@@ -128,7 +123,7 @@ class Component(Entity):
     def unique_id(self) -> str:
         """Return the name of the sensor."""
         return (
-            NAME + f"_{self._username.replace('-', '_')}"
+            NAME + f"_{self._data._username.replace('-', '_')}"
         )
 
     @property
@@ -140,9 +135,9 @@ class Component(Entity):
         """Return the state attributes."""
         return {
         #FIXME
-            "wifree": self.next_garbage_pickup,
+            #"wifree": self.next_garbage_pickup,
             ATTR_ATTRIBUTION: NAME,
-            "last update": self.data._last_update
+            "last update": self._data._last_update
         }
 
     @property
