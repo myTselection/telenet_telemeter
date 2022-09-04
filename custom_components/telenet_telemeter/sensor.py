@@ -90,7 +90,7 @@ class ComponentData:
             self._session = TelenetSession()
 
         if self._session:
-            self._session.login(self._username, self._password)
+            await self._session.login(self._username, self._password)
             self._telemeter = self._session.telemter()
 
     async def update(self):

@@ -138,13 +138,13 @@ class TelenetSession(object):
 
     def login(self, username, password):
         # Get OAuth2 state / nonce
-        r = self.s.get(
+        r = await hass.async_add_executor_job(self.s.get(
             "https://api.prd.telenet.be/ocapi/oauth/userdetails",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice"
             },
             timeout=10,
-        )
+        ))
 
         # Return if already authenticated
         if r.status_code == 200:
