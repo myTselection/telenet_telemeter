@@ -199,4 +199,5 @@ class TelenetSession(object):
             timeout=10,
         )
         assert r.status_code == 200
-        return next(Telemeter.from_json(r.json()))
+        # return next(Telemeter.from_json(r.json()))
+        return r.json()

@@ -91,7 +91,9 @@ class ComponentData:
 
         if self._session:
             await self._session.login(self._username, self._password)
+            _LOGGER.debug("login completed")
             self._telemeter = self._session.telemter()
+            _LOGGER.debug(f"telemeter data: {self._telemeter}")
 
     async def update(self):
         await self._update()
