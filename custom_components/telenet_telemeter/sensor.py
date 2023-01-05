@@ -93,9 +93,9 @@ class ComponentData:
 
         if self._session:
             self._session.login(self._username, self._password, self._hass)
-            _LOGGER.debug("login completed")
-            self._telemeter = self._session.telemeter(self._hass)
-            _LOGGER.debug(f"telemeter data: {self._telemeter}")
+            _LOGGER.info("login completed")
+            self._telemeter = asyncio.run_coroutine_threadsafe(self._session.telemeter(self._hass),self._hass.loop).result()
+            _LOGGER.info(f"telemeter data: {self._telemeter}")
 
     async def update(self):
         await self._update()
