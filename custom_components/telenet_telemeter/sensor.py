@@ -113,7 +113,7 @@ class Component(Entity):
         """Return the state of the sensor."""
         #FIXME integrate Telenet telemeter data request
         # return asyncio.run_coroutine_threadsafe(self._data._telemeter, self._hass.loop).result()
-        _LOGGER.warn("Telemeter data state: " + self._data._telemeter)
+        _LOGGER.info(f"telemeter data: {self._data._telemeter}")
         return self._data._telemeter
 
     async def async_update(self):

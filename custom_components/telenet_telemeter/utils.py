@@ -141,7 +141,7 @@ class TelenetSession(object):
         headers = {"x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice"}
 
         response = await self.s.get("https://api.prd.telenet.be/ocapi/oauth/userdetails", headers=headers,timeout=10)
-        _LOGGER.info("userdetails restult " + response.status)
+        _LOGGER.info("userdetails restult " + str(response.status))
         if (response.status == 200):
             # Return if already authenticated
             return
@@ -153,10 +153,10 @@ class TelenetSession(object):
         # Log in
         response = await self.s.get(f'https://login.prd.telenet.be/openid/oauth/authorize?client_id=ocapi&response_type=code&claims={{"id_token":{{"http://telenet.be/claims/roles":null,"http://telenet.be/claims/licenses":null}}}}&lang=nl&state={state}&nonce={nonce}&prompt=login',timeout=10)
             #no action
-        _LOGGER.info("login restult " + response.status)
+        _LOGGER.info("login restult " + str(response.status))
         
         response = await self.s.post("https://login.prd.telenet.be/openid/login.do",data={"j_username": username,"j_password": password,"rememberme": True,},timeout=10)
-        _LOGGER.info("post restult " + response.status)
+        _LOGGER.info("post restult " + str(response.status))
         assert await response.status == 200
 
         self.s.headers["X-TOKEN-XSRF"] = await self.s.cookies.get("TOKEN-XSRF")
@@ -168,7 +168,7 @@ class TelenetSession(object):
             },
             timeout=10,
         )
-        _LOGGER.info("get userdetails restult " + response.status)
+        _LOGGER.info("get userdetails restult " + str(response.status))
         assert await r.status == 200
 
     async def userdetails(self, hass):
@@ -189,7 +189,7 @@ class TelenetSession(object):
             },
             timeout=10,
         )
-        _LOGGER.info("telemeter restult " + response.status)
+        _LOGGER.info("telemeter restult " + str(response.status))
         # assert await r.status_code == 200
         # return next(Telemeter.from_json(r.json()))
         return await r.json()
