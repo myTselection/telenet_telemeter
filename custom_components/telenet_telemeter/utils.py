@@ -140,22 +140,21 @@ class TelenetSession(object):
         # Get OAuth2 state / nonce
         headers = {"x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice"}
 
-        async with self.s.get("https://api.prd.telenet.be/ocapi/oauth/userdetails", headers=headers,timeout=10) as response:
-            if(response.status == 200):
-                # Return if already authenticated
-                return
-            
-            assert response.status_code == 401
-            data = await response.text()
-            state, nonce = data.text.split(",", maxsplit=2)
+        response = await self.s.get("https://api.prd.telenet.be/ocapi/oauth/userdetails", headers=headers,timeout=10)
+        if(response.status == 200):
+            # Return if already authenticated
+            return
+        
+        assert response.status == 401
+        data = await response.text()
+        state, nonce = data.text.split(",", maxsplit=2)
 
         # Log in
-        
-        async with self.s.get(f'https://login.prd.telenet.be/openid/oauth/authorize?client_id=ocapi&response_type=code&claims={{"id_token":{{"http://telenet.be/claims/roles":null,"http://telenet.be/claims/licenses":null}}}}&lang=nl&state={state}&nonce={nonce}&prompt=login',timeout=10) as response:
+        response = await self.s.get(f'https://login.prd.telenet.be/openid/oauth/authorize?client_id=ocapi&response_type=code&claims={{"id_token":{{"http://telenet.be/claims/roles":null,"http://telenet.be/claims/licenses":null}}}}&lang=nl&state={state}&nonce={nonce}&prompt=login',timeout=10)
             #no action
         
-        async with self.s.post("https://login.prd.telenet.be/openid/login.do",data={"j_username": username,"j_password": password,"rememberme": True,},timeout=10) as response:
-            assert response.status_code == 200
+        response = await self.s.post("https://login.prd.telenet.be/openid/login.do",data={"j_username": username,"j_password": password,"rememberme": True,},timeout=10)
+        assert response.status == 200
 
         self.s.headers["X-TOKEN-XSRF"] = self.s.cookies.get("TOKEN-XSRF")
 
@@ -166,7 +165,7 @@ class TelenetSession(object):
             },
             timeout=10,
         )
-        assert r.status_code == 200
+        assert r.status == 200
 
     async def userdetails(self, hass):
         r = await self.s.get(
@@ -175,8 +174,8 @@ class TelenetSession(object):
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
             },
         )
-        assert r.status_code == 200
-        return r.json()
+        assert r.status == 200
+        return await r.json()
 
     async def telemeter(self, hass):
         r = await self.s.get(
@@ -188,4 +187,4 @@ class TelenetSession(object):
         )
         assert r.status_code == 200
         # return next(Telemeter.from_json(r.json()))
-        return r.json()
+        return await r.json()
