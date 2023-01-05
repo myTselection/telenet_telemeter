@@ -150,8 +150,7 @@ class TelenetSession(object):
             return
         
         assert response.status_code == 401
-        data = response.text()
-        state, nonce = data.split(",", maxsplit=2)
+        state, nonce = response.text.split(",", maxsplit=2)
 
         # Log in
         response = self.s.get(f'https://login.prd.telenet.be/openid/oauth/authorize?client_id=ocapi&response_type=code&claims={{"id_token":{{"http://telenet.be/claims/roles":null,"http://telenet.be/claims/licenses":null}}}}&lang=nl&state={state}&nonce={nonce}&prompt=login',timeout=10)
