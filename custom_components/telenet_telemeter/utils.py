@@ -141,11 +141,11 @@ class TelenetSession(object):
         headers = {"x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice"}
 
         response = await self.s.get("https://api.prd.telenet.be/ocapi/oauth/userdetails", headers=headers,timeout=10)
-        if(response.status == 200):
+        if (await response.status == 200):
             # Return if already authenticated
             return
         
-        assert response.status == 401
+        assert await response.status == 401
         data = await response.text()
         state, nonce = data.text.split(",", maxsplit=2)
 
@@ -154,9 +154,9 @@ class TelenetSession(object):
             #no action
         
         response = await self.s.post("https://login.prd.telenet.be/openid/login.do",data={"j_username": username,"j_password": password,"rememberme": True,},timeout=10)
-        assert response.status == 200
+        assert await response.status == 200
 
-        self.s.headers["X-TOKEN-XSRF"] = self.s.cookies.get("TOKEN-XSRF")
+        self.s.headers["X-TOKEN-XSRF"] = await self.s.cookies.get("TOKEN-XSRF")
 
         r = await self.s.get(
             "https://api.prd.telenet.be/ocapi/oauth/userdetails",
@@ -165,7 +165,7 @@ class TelenetSession(object):
             },
             timeout=10,
         )
-        assert r.status == 200
+        assert await r.status == 200
 
     async def userdetails(self, hass):
         r = await self.s.get(
@@ -174,7 +174,7 @@ class TelenetSession(object):
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
             },
         )
-        assert r.status == 200
+        assert await r.status == 200
         return await r.json()
 
     async def telemeter(self, hass):
@@ -185,6 +185,6 @@ class TelenetSession(object):
             },
             timeout=10,
         )
-        assert r.status_code == 200
+        assert await r.status_code == 200
         # return next(Telemeter.from_json(r.json()))
         return await r.json()
