@@ -35,7 +35,7 @@ async def dry_setup(hass, config_entry, async_add_devices):
     data = ComponentData(
         username,
         password,
-        async_get_clientsession(hass),
+        async_get_clientsession(hass),hass
     )
 
     await data.update()
@@ -73,7 +73,7 @@ async def async_remove_entry(hass, config_entry):
 
 
 class ComponentData:
-    def __init__(self, username, password, client):
+    def __init__(self, username, password, client, hass):
         self._username = username
         self._password = password
         self.client = client
@@ -82,6 +82,7 @@ class ComponentData:
         self._friendly_name = None
         self._session = TelenetSession()
         self._telemeter = None
+        self._hass = hass
         
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def _update(self):
@@ -90,7 +91,7 @@ class ComponentData:
             self._session = TelenetSession()
 
         if self._session:
-            await self.hass.async_add_executor_job(self._session.login(self._username, self._password))
+            await self._hass.async_add_executor_job(self._session.login(self._username, self._password))
             _LOGGER.debug("login completed")
             self._telemeter = self._session.telemter()
             _LOGGER.debug(f"telemeter data: {self._telemeter}")
