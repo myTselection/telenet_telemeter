@@ -30,6 +30,7 @@ def check_settings(config, hass):
 def _kibibyte_to_gibibyte(kib):
     return kib / (2 ** 20)
     
+#not used
 class UsageDay(BaseModel):
     """Represents a day of internet usage"""
 
@@ -51,7 +52,7 @@ class UsageDay(BaseModel):
             return f"{date_str}: {usage_gib:4.2f} GiB"
 
 
-
+#not used
 class TelenetProductUsage(BaseModel):
     product_type: str
     squeezed: bool
@@ -111,6 +112,7 @@ class TelenetProductUsage(BaseModel):
 
 
 
+#not used
 class Telemeter(BaseModel):
     period_start: datetime
     period_end: datetime
@@ -133,36 +135,36 @@ class Telemeter(BaseModel):
 
 class TelenetSession(object):
     def __init__(self, client):
-        self.s = client
-        # self.s.headers["User-Agent"] = "TelemeterPython/3"
+        # self.s = client
+        self.s = requests.Session()
+        self.s.headers["User-Agent"] = "TelemeterPython/3"
 
-    async def login(self, username, password, hass):
+    def login(self, username, password, hass):
         # Get OAuth2 state / nonce
         headers = {"x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice"}
 
-        response = await self.s.get("https://api.prd.telenet.be/ocapi/oauth/userdetails", headers=headers,timeout=10)
+        response = self.s.get("https://api.prd.telenet.be/ocapi/oauth/userdetails", headers=headers,timeout=10)
         _LOGGER.info("userdetails restult " + str(response.status))
         if (response.status == 200):
             # Return if already authenticated
             return
         
         assert response.status == 401
-        data = await response.text()
+        data = response.text()
         state, nonce = data.split(",", maxsplit=2)
 
         # Log in
-        response = await self.s.get(f'https://login.prd.telenet.be/openid/oauth/authorize?client_id=ocapi&response_type=code&claims={{"id_token":{{"http://telenet.be/claims/roles":null,"http://telenet.be/claims/licenses":null}}}}&lang=nl&state={state}&nonce={nonce}&prompt=login',timeout=10)
+        response = self.s.get(f'https://login.prd.telenet.be/openid/oauth/authorize?client_id=ocapi&response_type=code&claims={{"id_token":{{"http://telenet.be/claims/roles":null,"http://telenet.be/claims/licenses":null}}}}&lang=nl&state={state}&nonce={nonce}&prompt=login',timeout=10)
             #no action
         _LOGGER.info("login restult " + str(response.status))
         
-        response = await self.s.post("https://login.prd.telenet.be/openid/login.do",data={"j_username": username,"j_password": password,"rememberme": True,},timeout=10)
+        response = self.s.post("https://login.prd.telenet.be/openid/login.do",data={"j_username": username,"j_password": password,"rememberme": True,},timeout=10)
         _LOGGER.info("post restult " + str(response.status))
         assert response.status == 200
 
-        # self.s.headers["X-TOKEN-XSRF"] = self.s.cookies.get("TOKEN-XSRF")
-        self.s.headers["X-TOKEN-XSRF"] = self.s.headers.get("TOKEN-XSRF")
+        self.s.headers["X-TOKEN-XSRF"] = self.s.cookies.get("TOKEN-XSRF")
 
-        r = await self.s.get(
+        r = self.s.get(
             "https://api.prd.telenet.be/ocapi/oauth/userdetails",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
@@ -172,18 +174,18 @@ class TelenetSession(object):
         _LOGGER.info("get userdetails restult " + str(response.status))
         assert r.status == 200
 
-    async def userdetails(self, hass):
-        r = await self.s.get(
+    def userdetails(self, hass):
+        r = self.s.get(
             "https://api.prd.telenet.be/ocapi/oauth/userdetails",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
             },
         )
         assert r.status == 200
-        return await r.json()
+        return r.json()
 
-    async def telemeter(self, hass):
-        r = await self.s.get(
+    def telemeter(self, hass):
+        r = self.s.get(
             "https://api.prd.telenet.be/ocapi/public/?p=internetusage,internetusagereminder",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
@@ -191,6 +193,6 @@ class TelenetSession(object):
             timeout=10,
         )
         _LOGGER.info("telemeter restult " + str(response.status))
-        # assert await r.status_code == 200
+        assert r.status_code == 200
         # return next(Telemeter.from_json(r.json()))
-        return await r.json()
+        return r.json()
