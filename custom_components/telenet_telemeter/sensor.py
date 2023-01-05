@@ -40,7 +40,7 @@ async def dry_setup(hass, config_entry, async_add_devices):
 
     await data.update()
     sensors = []
-    sensor = Component(data)
+    sensor = Component(data, hass)
     sensors.append(sensor)
 
     async_add_devices(sensors)
@@ -102,15 +102,17 @@ class ComponentData:
 
 
 
-class Component(Entity):
+class Component(Entity, hass):
     def __init__(self, data):
         self._data = data
+        self._hass = hass
 
     @property
     def state(self):
         """Return the state of the sensor."""
-    #FIXME integrate Telenet telemeter data request
-        return self._data._telemeter
+        #FIXME integrate Telenet telemeter data request
+        return asyncio.run_coroutine_threadsafe(self._data._telemeter, self._hass.loop).result()
+        # return self._data._telemeter
 
     async def async_update(self):
         await self._data.update()
@@ -143,7 +145,7 @@ class Component(Entity):
             # "last update": self._data._telemeter.internetusage[0].lastupdated,
             # "peak_usage": self._data._telemeter.usages[0].totalusage.peak/1024/1024,
             # "offpeak_usage": self._data._telemeter.usages[0].totalusage.offpeak/1024/1024,
-            "telemeter_json": self._data._telemeter
+            # "telemeter_json": self._data._telemeter
         }
 
     @property
