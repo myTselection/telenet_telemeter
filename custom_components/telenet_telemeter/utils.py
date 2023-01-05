@@ -159,7 +159,8 @@ class TelenetSession(object):
         _LOGGER.info("post restult " + str(response.status))
         assert response.status == 200
 
-        self.s.headers["X-TOKEN-XSRF"] = await self.s.cookies.get("TOKEN-XSRF")
+        # self.s.headers["X-TOKEN-XSRF"] = self.s.cookies.get("TOKEN-XSRF")
+        self.s.headers["X-TOKEN-XSRF"] = self.s.headers.get("TOKEN-XSRF")
 
         r = await self.s.get(
             "https://api.prd.telenet.be/ocapi/oauth/userdetails",
