@@ -88,14 +88,14 @@ class ComponentData:
         
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def _update(self):
-        _LOGGER.warn("Fetching stuff for " + NAME)
+        _LOGGER.info("Fetching stuff for " + NAME)
         if not(self._session):
             self._session = TelenetSession()
 
         if self._session:
-            await self.hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
+            await self._hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
             _LOGGER.info("login completed")
-            self._telemeter = await self.hass.async_add_executor_job(lambda: self._session.telemeter())
+            self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
             _LOGGER.info(f"telemeter data: {self._telemeter}")
 
     async def update(self):
