@@ -110,7 +110,7 @@ class Component(Entity):
     def state(self):
         """Return the state of the sensor."""
     #FIXME integrate Telenet telemeter data request
-        return self._data._telemeter.usages[0].totalusage.peak
+        return self._data._telemeter
 
     async def async_update(self):
         await self._data.update()
@@ -140,9 +140,9 @@ class Component(Entity):
         #FIXME
             #"wifree": self.next_garbage_pickup,
             ATTR_ATTRIBUTION: NAME,
-            "last update": self._data._telemeter.internetusage[0].lastupdated,
-            "peak_usage": self._data._telemeter.usages[0].totalusage.peak/1024/1024,
-            "offpeak_usage": self._data._telemeter.usages[0].totalusage.offpeak/1024/1024,
+            # "last update": self._data._telemeter.internetusage[0].lastupdated,
+            # "peak_usage": self._data._telemeter.usages[0].totalusage.peak/1024/1024,
+            # "offpeak_usage": self._data._telemeter.usages[0].totalusage.offpeak/1024/1024,
             "telemeter_json": self._data._telemeter
         }
 
