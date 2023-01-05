@@ -190,14 +190,14 @@ class TelenetSession(object):
         assert r.status_code == 200
         return r.json()
 
-    def telemeter(self):
-        r = self.s.get(
+    def telemeter(self, hass):
+        r = await hass.async_add_executor_job(self.s.get(
             "https://api.prd.telenet.be/ocapi/public/?p=internetusage,internetusagereminder",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
             },
             timeout=10,
-        )
+        ))
         assert r.status_code == 200
         # return next(Telemeter.from_json(r.json()))
         return r.json()

@@ -93,7 +93,7 @@ class ComponentData:
         if self._session:
             self._session.login(self._username, self._password, self._hass)
             _LOGGER.debug("login completed")
-            self._telemeter = self._session.telemeter()
+            self._telemeter = self._session.telemeter(self._hass)
             _LOGGER.debug(f"telemeter data: {self._telemeter}")
 
     async def update(self):
