@@ -87,7 +87,7 @@ class ComponentData:
         
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def _update(self):
-        _LOGGER.WARNING("Fetching stuff for " + NAME)
+        _LOGGER.warn("Fetching stuff for " + NAME)
         if not(self._session):
             self._session = TelenetSession(self._client)
 
@@ -113,7 +113,7 @@ class Component(Entity):
         """Return the state of the sensor."""
         #FIXME integrate Telenet telemeter data request
         # return asyncio.run_coroutine_threadsafe(self._data._telemeter, self._hass.loop).result()
-        _LOGGER.WARNING("Telemeter data state: " + self._data._telemeter)
+        _LOGGER.warn("Telemeter data state: " + self._data._telemeter)
         return self._data._telemeter
 
     async def async_update(self):
