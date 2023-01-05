@@ -102,8 +102,8 @@ class ComponentData:
 
 
 
-class Component(Entity, hass):
-    def __init__(self, data):
+class Component(Entity):
+    def __init__(self, data, hass):
         self._data = data
         self._hass = hass
 
