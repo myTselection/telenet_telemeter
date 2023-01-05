@@ -134,7 +134,7 @@ class Telemeter(BaseModel):
 class TelenetSession(object):
     def __init__(self, client):
         self.s = client
-        self.s.headers["User-Agent"] = "TelemeterPython/3"
+        # self.s.headers["User-Agent"] = "TelemeterPython/3"
 
     async def login(self, username, password, hass):
         # Get OAuth2 state / nonce
