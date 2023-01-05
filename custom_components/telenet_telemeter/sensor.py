@@ -99,7 +99,7 @@ class ComponentData:
 
     async def update(self):
         await self._update()
-        return self._telemeter(self._hass)
+        return self._telemeter
 
 
 
@@ -113,7 +113,7 @@ class Component(Entity):
         """Return the state of the sensor."""
         #FIXME integrate Telenet telemeter data request
         # return asyncio.run_coroutine_threadsafe(self._data._telemeter, self._hass.loop).result()
-        return self._data._telemeter(self._hass)
+        return self._data._telemeter
 
     async def async_update(self):
         await self._data.update()
@@ -146,7 +146,7 @@ class Component(Entity):
             # "last update": self._data._telemeter.internetusage[0].lastupdated,
             # "peak_usage": self._data._telemeter.usages[0].totalusage.peak/1024/1024,
             # "offpeak_usage": self._data._telemeter.usages[0].totalusage.offpeak/1024/1024,
-            "telemeter_json": self._data._telemeter(self._hass)
+            "telemeter_json": self._data._telemeter
         }
 
     @property
