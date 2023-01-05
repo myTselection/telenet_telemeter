@@ -134,12 +134,12 @@ class Telemeter(BaseModel):
         return s
 
 class TelenetSession(object):
-    def __init__(self, client):
+    def __init__(self):
         # self.s = client
         self.s = requests.Session()
         self.s.headers["User-Agent"] = "TelemeterPython/3"
 
-    def login(self, username, password, hass):
+    def login(self, username, password):
         # Get OAuth2 state / nonce
         headers = {"x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice"}
 
@@ -174,7 +174,7 @@ class TelenetSession(object):
         _LOGGER.info("get userdetails restult " + str(response.status))
         assert r.status == 200
 
-    def userdetails(self, hass):
+    def userdetails(self):
         r = self.s.get(
             "https://api.prd.telenet.be/ocapi/oauth/userdetails",
             headers={
@@ -184,7 +184,7 @@ class TelenetSession(object):
         assert r.status == 200
         return r.json()
 
-    def telemeter(self, hass):
+    def telemeter(self):
         r = self.s.get(
             "https://api.prd.telenet.be/ocapi/public/?p=internetusage,internetusagereminder",
             headers={
