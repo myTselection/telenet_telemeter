@@ -91,7 +91,7 @@ class ComponentData:
             self._session = TelenetSession()
 
         if self._session:
-            await self._hass.async_add_executor_job(self._session.login(self._username, self._password))
+            self._session.login(self._username, self._password, self._hass)
             _LOGGER.debug("login completed")
             self._telemeter = self._session.telemter()
             _LOGGER.debug(f"telemeter data: {self._telemeter}")

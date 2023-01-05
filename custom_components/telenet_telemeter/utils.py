@@ -136,15 +136,15 @@ class TelenetSession(object):
         self.s = requests.Session()
         self.s.headers["User-Agent"] = "TelemeterPython/3"
 
-    def login(self, username, password):
+    def login(self, username, password, hass):
         # Get OAuth2 state / nonce
-        r = self.s.get(
+        r = await hass.async_add_executor_job(self.s.get(
             "https://api.prd.telenet.be/ocapi/oauth/userdetails",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice"
             },
             timeout=10,
-        )
+        ))
 
         # Return if already authenticated
         if r.status_code == 200:
@@ -154,11 +154,11 @@ class TelenetSession(object):
         state, nonce = r.text.split(",", maxsplit=2)
 
         # Log in
-        r = self.s.get(
+        r = await hass.async_add_executor_job(self.s.get(
             f'https://login.prd.telenet.be/openid/oauth/authorize?client_id=ocapi&response_type=code&claims={{"id_token":{{"http://telenet.be/claims/roles":null,"http://telenet.be/claims/licenses":null}}}}&lang=nl&state={state}&nonce={nonce}&prompt=login',
             timeout=10,
-        )
-        r = self.s.post(
+        ))
+        r = await hass.async_add_executor_job(self.s.post(
             "https://login.prd.telenet.be/openid/login.do",
             data={
                 "j_username": username,
@@ -166,18 +166,18 @@ class TelenetSession(object):
                 "rememberme": True,
             },
             timeout=10,
-        )
+        ))
         assert r.status_code == 200
 
         self.s.headers["X-TOKEN-XSRF"] = self.s.cookies.get("TOKEN-XSRF")
 
-        r = self.s.get(
+        r = await hass.async_add_executor_job(self.s.get(
             "https://api.prd.telenet.be/ocapi/oauth/userdetails",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
             },
             timeout=10,
-        )
+        ))
         assert r.status_code == 200
 
     def userdetails(self):
