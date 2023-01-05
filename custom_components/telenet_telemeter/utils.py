@@ -163,7 +163,7 @@ class TelenetSession(object):
 
         self.s.headers["X-TOKEN-XSRF"] = self.s.cookies.get("TOKEN-XSRF")
 
-        r = self.s.get(
+        response = self.s.get(
             "https://api.prd.telenet.be/ocapi/oauth/userdetails",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
@@ -171,20 +171,20 @@ class TelenetSession(object):
             timeout=10,
         )
         _LOGGER.info("get userdetails restult " + str(response.status_code))
-        assert r.status_code == 200
+        assert response.status_code == 200
 
     def userdetails(self):
-        r = self.s.get(
+        response = self.s.get(
             "https://api.prd.telenet.be/ocapi/oauth/userdetails",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
             },
         )
-        assert r.status_code == 200
-        return r.json()
+        assert response.status_code == 200
+        return response.json()
 
     def telemeter(self):
-        r = self.s.get(
+        response = self.s.get(
             "https://api.prd.telenet.be/ocapi/public/?p=internetusage,internetusagereminder",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
@@ -192,6 +192,6 @@ class TelenetSession(object):
             timeout=10,
         )
         _LOGGER.info("telemeter restult " + str(response.status_code))
-        assert r.status_code == 200
-        # return next(Telemeter.from_json(r.json()))
-        return r.json()
+        assert response.status_code == 200
+        # return next(Telemeter.from_json(response.json()))
+        return response.json()
