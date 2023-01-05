@@ -132,72 +132,60 @@ class Telemeter(BaseModel):
         return s
 
 class TelenetSession(object):
-    def __init__(self):
-        self.s = requests.Session()
+    def __init__(self, client):
+        self.s = client
         self.s.headers["User-Agent"] = "TelemeterPython/3"
 
     async def login(self, username, password, hass):
         # Get OAuth2 state / nonce
-        r = await hass.async_add_executor_job(self.s.get(
-            "https://api.prd.telenet.be/ocapi/oauth/userdetails",
-            headers={
-                "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice"
-            },
-            timeout=10,
-        ))
+        headers = {"x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice"}
 
-        # Return if already authenticated
-        if r.status_code == 200:
-            return
-
-        assert r.status_code == 401
-        state, nonce = r.text.split(",", maxsplit=2)
+        async with self.s.get("https://api.prd.telenet.be/ocapi/oauth/userdetails", headers=headers,timeout=10) as response:
+            if(response.status == 200):
+                # Return if already authenticated
+                return
+            
+            assert response.status_code == 401
+            data = await response.text()
+            state, nonce = data.text.split(",", maxsplit=2)
 
         # Log in
-        r = await hass.async_add_executor_job(self.s.get(
-            f'https://login.prd.telenet.be/openid/oauth/authorize?client_id=ocapi&response_type=code&claims={{"id_token":{{"http://telenet.be/claims/roles":null,"http://telenet.be/claims/licenses":null}}}}&lang=nl&state={state}&nonce={nonce}&prompt=login',
-            timeout=10,
-        ))
-        r = await hass.async_add_executor_job(self.s.post(
-            "https://login.prd.telenet.be/openid/login.do",
-            data={
-                "j_username": username,
-                "j_password": password,
-                "rememberme": True,
-            },
-            timeout=10,
-        ))
-        assert r.status_code == 200
+        
+        async with self.s.get(f'https://login.prd.telenet.be/openid/oauth/authorize?client_id=ocapi&response_type=code&claims={{"id_token":{{"http://telenet.be/claims/roles":null,"http://telenet.be/claims/licenses":null}}}}&lang=nl&state={state}&nonce={nonce}&prompt=login',timeout=10) as response:
+            #no action
+        
+        async with self.s.post("https://login.prd.telenet.be/openid/login.do",data={"j_username": username,"j_password": password,"rememberme": True,},timeout=10) as response:
+            assert response.status_code == 200
 
         self.s.headers["X-TOKEN-XSRF"] = self.s.cookies.get("TOKEN-XSRF")
 
-        r = await hass.async_add_executor_job(self.s.get(
+        r = await self.s.get(
             "https://api.prd.telenet.be/ocapi/oauth/userdetails",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
             },
             timeout=10,
-        ))
+        )
         assert r.status_code == 200
 
     async def userdetails(self, hass):
-        r = await hass.async_add_executor_job(self.s.get(
+        r = await self.s.get(
             "https://api.prd.telenet.be/ocapi/oauth/userdetails",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
             },
-        ))
+        )
         assert r.status_code == 200
         return r.json()
 
     async def telemeter(self, hass):
-        r = await hass.async_add_executor_job(self.s.get(
+        r = await self.s.get(
             "https://api.prd.telenet.be/ocapi/public/?p=internetusage,internetusagereminder",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
             },
             timeout=10,
-        ))
+        )
         assert r.status_code == 200
         # return next(Telemeter.from_json(r.json()))
         return r.json()

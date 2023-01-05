@@ -81,7 +81,7 @@ class ComponentData:
         self._data = {}
         self._last_update = None
         self._friendly_name = None
-        self._session = TelenetSession()
+        self._session = TelenetSession(client)
         self._telemeter = None
         self._hass = hass
         
@@ -89,7 +89,7 @@ class ComponentData:
     async def _update(self):
         _LOGGER.debug("Fetching stuff for " + NAME)
         if not(self._session):
-            self._session = TelenetSession()
+            self._session = TelenetSession(client)
 
         if self._session:
             self._session.login(self._username, self._password, self._hass)
