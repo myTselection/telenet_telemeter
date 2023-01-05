@@ -96,7 +96,7 @@ class ComponentData:
             await self._hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
             _LOGGER.info("login completed")
             self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
-            _LOGGER.info(f"telemeter data: {self._telemeter}")
+            _LOGGER.debug(f"telemeter data: {self._telemeter}")
 
     async def update(self):
         await self._update()
@@ -112,10 +112,7 @@ class Component(Entity):
     @property
     def state(self):
         """Return the state of the sensor."""
-        #FIXME integrate Telenet telemeter data request
-        # return asyncio.run_coroutine_threadsafe(self._data._telemeter, self._hass.loop).result()
-        _LOGGER.info(f"telemeter data: {self._data._telemeter}")
-        return self._data._telemeter
+        return self._data._telemeter.internetusage[0].availableperiods[0].usages[0].usedpercentage
 
     async def async_update(self):
         await self._data.update()
@@ -145,10 +142,16 @@ class Component(Entity):
         #FIXME
             #"wifree": self.next_garbage_pickup,
             ATTR_ATTRIBUTION: NAME,
-            # "last update": self._data._telemeter.internetusage[0].lastupdated,
-            # "peak_usage": self._data._telemeter.usages[0].totalusage.peak/1024/1024,
-            # "offpeak_usage": self._data._telemeter.usages[0].totalusage.offpeak/1024/1024,
-            # "telemeter_json": self._data._telemeter
+            "last update": self._data._telemeter.internetusage[0].lastupdated,
+            "used_percentage": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].usedpercentage,
+            "included_volume": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].includedvolume,
+            "wifree_usage": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].totalusage.wifree,
+            "includedvolume_usage": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].totalusage.includedvolume,
+            "extendedvolume_usage": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].totalusage.extendedvolume,
+            "period_start": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].periodstart,
+            "period_end": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].periodend,
+            "product": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].producttype,            
+            "telemeter_json": self._data._telemeter
         }
 
     @property
