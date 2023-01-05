@@ -136,7 +136,7 @@ class TelenetSession(object):
         self.s = requests.Session()
         self.s.headers["User-Agent"] = "TelemeterPython/3"
 
-    def login(self, username, password, hass):
+    async def login(self, username, password, hass):
         # Get OAuth2 state / nonce
         r = await hass.async_add_executor_job(self.s.get(
             "https://api.prd.telenet.be/ocapi/oauth/userdetails",
