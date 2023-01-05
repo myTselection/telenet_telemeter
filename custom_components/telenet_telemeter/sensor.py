@@ -110,7 +110,7 @@ class Component(Entity):
     def state(self):
         """Return the state of the sensor."""
     #FIXME integrate Telenet telemeter data request
-        return self._data._telemeter
+        return self._data._telemeter.usages[0].totalusage.peak
 
     async def async_update(self):
         await self._data.update()
@@ -118,7 +118,7 @@ class Component(Entity):
     @property
     def icon(self) -> str:
         """Shows the correct icon for container."""
-        return "mdi:network_check"
+        return "mdi:check-network-outline"
         #alternative: 
         #return "mdi:wifi_tethering_error"
         
@@ -140,7 +140,10 @@ class Component(Entity):
         #FIXME
             #"wifree": self.next_garbage_pickup,
             ATTR_ATTRIBUTION: NAME,
-            "last update": self._data._last_update
+            "last update": self._data._telemeter.internetusage[0].lastupdated,
+            "peak_usage": self._data._telemeter.usages[0].totalusage.peak/1024/1024,
+            "offpeak_usage": self._data._telemeter.usages[0].totalusage.offpeak/1024/1024,
+            "telemeter_json": self._data._telemeter
         }
 
     @property
