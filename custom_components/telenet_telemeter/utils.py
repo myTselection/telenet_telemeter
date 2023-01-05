@@ -146,7 +146,7 @@ class TelenetSession(object):
             # Return if already authenticated
             return
         
-        assert await response.status == 401
+        assert response.status == 401
         data = await response.text()
         state, nonce = data.text.split(",", maxsplit=2)
 
@@ -157,7 +157,7 @@ class TelenetSession(object):
         
         response = await self.s.post("https://login.prd.telenet.be/openid/login.do",data={"j_username": username,"j_password": password,"rememberme": True,},timeout=10)
         _LOGGER.info("post restult " + str(response.status))
-        assert await response.status == 200
+        assert response.status == 200
 
         self.s.headers["X-TOKEN-XSRF"] = await self.s.cookies.get("TOKEN-XSRF")
 
@@ -169,7 +169,7 @@ class TelenetSession(object):
             timeout=10,
         )
         _LOGGER.info("get userdetails restult " + str(response.status))
-        assert await r.status == 200
+        assert r.status == 200
 
     async def userdetails(self, hass):
         r = await self.s.get(
@@ -178,7 +178,7 @@ class TelenetSession(object):
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
             },
         )
-        assert await r.status == 200
+        assert r.status == 200
         return await r.json()
 
     async def telemeter(self, hass):
