@@ -136,9 +136,9 @@ class TelenetSession(object):
         self.s = requests.Session()
         self.s.headers["User-Agent"] = "TelemeterPython/3"
 
-    def login(self, username, password):
+    async def login(self, username, password):
         # Get OAuth2 state / nonce
-        r = self.s.get(
+        await r = self.s.get(
             "https://api.prd.telenet.be/ocapi/oauth/userdetails",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice"
@@ -171,7 +171,7 @@ class TelenetSession(object):
 
         self.s.headers["X-TOKEN-XSRF"] = self.s.cookies.get("TOKEN-XSRF")
 
-        r = self.s.get(
+        await r = self.s.get(
             "https://api.prd.telenet.be/ocapi/oauth/userdetails",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
@@ -180,8 +180,8 @@ class TelenetSession(object):
         )
         assert r.status_code == 200
 
-    def userdetails(self):
-        r = self.s.get(
+    async def userdetails(self):
+        await r = self.s.get(
             "https://api.prd.telenet.be/ocapi/oauth/userdetails",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
@@ -190,8 +190,8 @@ class TelenetSession(object):
         assert r.status_code == 200
         return r.json()
 
-    def telemeter(self):
-        r = self.s.get(
+    async def telemeter(self):
+        await r = self.s.get(
             "https://api.prd.telenet.be/ocapi/public/?p=internetusage,internetusagereminder",
             headers={
                 "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
