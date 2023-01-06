@@ -139,8 +139,6 @@ class Component(Entity):
     def extra_state_attributes(self) -> dict:
         """Return the state attributes."""
         return {
-        #FIXME
-            #"wifree": self.next_garbage_pickup,
             ATTR_ATTRIBUTION: NAME,
             "last update": self._data._telemeter.internetusage[0].lastupdated,
             "used_percentage": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].usedpercentage,
@@ -171,7 +169,7 @@ class Component(Entity):
     @property
     def unit_of_measurement(self) -> str:
         """Return the unit of measurement this sensor expresses itself in."""
-        return "GB"
+        return "%"
 
     @property
     def friendly_name(self) -> str:

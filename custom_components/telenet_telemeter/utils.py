@@ -155,10 +155,10 @@ class TelenetSession(object):
         # Log in
         response = self.s.get(f'https://login.prd.telenet.be/openid/oauth/authorize?client_id=ocapi&response_type=code&claims={{"id_token":{{"http://telenet.be/claims/roles":null,"http://telenet.be/claims/licenses":null}}}}&lang=nl&state={state}&nonce={nonce}&prompt=login',timeout=10)
             #no action
-        _LOGGER.info("login restult " + str(response.status_code))
+        _LOGGER.info("login result status code: " + str(response.status_code))
         
         response = self.s.post("https://login.prd.telenet.be/openid/login.do",data={"j_username": username,"j_password": password,"rememberme": True,},timeout=10)
-        _LOGGER.info("post restult " + str(response.status_code))
+        _LOGGER.info("post result status code: " + str(response.status_code))
         assert response.status_code == 200
 
         self.s.headers["X-TOKEN-XSRF"] = self.s.cookies.get("TOKEN-XSRF")
@@ -170,7 +170,7 @@ class TelenetSession(object):
             },
             timeout=10,
         )
-        _LOGGER.info("get userdetails restult " + str(response.status_code))
+        _LOGGER.info("get userdetails result status code: " + str(response.status_code))
         assert response.status_code == 200
 
     def userdetails(self):
@@ -191,7 +191,8 @@ class TelenetSession(object):
             },
             timeout=10,
         )
-        _LOGGER.info("telemeter restult " + str(response.status_code))
+        _LOGGER.info("telemeter result status code: " + str(response.status_code))
+        _LOGGER.info("telemeter result " + response.json())
         assert response.status_code == 200
         # return next(Telemeter.from_json(response.json()))
         return response.json()
