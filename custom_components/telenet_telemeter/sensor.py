@@ -109,7 +109,7 @@ class Component(Entity):
     def __init__(self, data, hass):
         self._data = data
         self._hass = hass
-        self._last_update =  datetime.strptime(self._data._telemeter.get('internetusage')[0].get('lastupdated'), _TELENET_DATETIME_FORMAT)
+        self._last_update =  self._data._telemeter.get('internetusage')[0].get('lastupdated')
         self._used_percentage = round(100 * ((self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume') + self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')) / ( self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume') + self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume'))))
         self._period_start_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
         self._period_end_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodend'), _TELENET_DATETIME_FORMAT)
