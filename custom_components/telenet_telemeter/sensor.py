@@ -128,7 +128,8 @@ class Component(Entity):
     def unique_id(self) -> str:
         """Return the name of the sensor."""
         return (
-            NAME + f"_{self._data._username.replace('-', '_')}"
+            # NAME + f"_{self._data._username.replace('-', '_')}"
+            NAME
         )
 
     @property
