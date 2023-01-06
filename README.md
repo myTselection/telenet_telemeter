@@ -55,10 +55,9 @@ cards:
 ```
 <p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/Markdown%20Gauge%20Card%20example.png"/></p>
 
-### Conditional card:
-Extra binary sensor to define when a warning should be shown in `configuration.yml`
-If data used_percentage is bigger than the period_used_percentage 
-and data used_percentage is higher than 70% 
+### Example conditional card:
+If a conditional card is desired to show a warning when high data used and many dayes left. For such a conditional card, an extra binary sensor can be defined in `configuration.yml` 
+If data used_percentage (data used %) is bigger than the period_used_percentage (time % in current perdio) and data used_percentage is higher than 70% 
 ```
 binary_sensor:
   - platform: template
