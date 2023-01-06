@@ -30,22 +30,17 @@ type: vertical-stack
 cards:
   - type: markdown
     content: >
-      <img
-      src="https://raw.githubusercontent.com/myTselection/telenet_telemeter/main/logo.png"
-      width="30"/>  **Telenet Telemeter**
-      ### Totaal verbruikt:
+      <img src="https://raw.githubusercontent.com/myTselection/telenet_telemeter/main/logo.png" width="30"/>  **Telenet Telemeter**
+      ### Total used:
       {{state_attr('sensor.telenet_telemeter','used_percentage')}}%
       ({{(state_attr('sensor.telenet_telemeter','includedvolume_usage')/1024/1024)|int}}GB
-      van {{state_attr('sensor.telenet_telemeter','total_volume')|int}}GB)
-      #### {{state_attr('sensor.telenet_telemeter','period_days_left')|int}}
-      dagen resterend
-      Periode {{state_attr('sensor.telenet_telemeter','period_start') |
+      of {{state_attr('sensor.telenet_telemeter','total_volume')|int}}GB)
+      #### {{state_attr('sensor.telenet_telemeter','period_days_left')|int}} days remaining
+      Period {{state_attr('sensor.telenet_telemeter','period_start') |
       as_timestamp | timestamp_custom("%d-%m-%Y")}} -
-      {{state_attr('sensor.telenet_telemeter','period_end') | as_timestamp |
-      timestamp_custom("%d-%m-%Y")}} 
-      {{state_attr('sensor.telenet_telemeter','product')}}, laatste update:
-      *{{state_attr('sensor.telenet_telemeter','last update') | as_timestamp |
-      timestamp_custom("%d-%m-%Y")}}*
+      {{state_attr('sensor.telenet_telemeter','period_end') | as_timestamp | timestamp_custom("%d-%m-%Y")}} 
+      {{state_attr('sensor.telenet_telemeter','product')}}, last update:
+      *{{state_attr('sensor.telenet_telemeter','last update') | as_timestamp | timestamp_custom("%d-%m-%Y")}}*
   - type: gauge
     entity: sensor.telenet_telemeter
     max: 100
@@ -57,5 +52,35 @@ cards:
       green: 0
       yellow: 60
       red: 80
-´´´
+```
 <p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/Markdown%20Gauge%20Card%20example.png"/></p>
+
+### Conditional card:
+Extra binary sensor to define when a warning should be shown in `configuration.yml`
+If data used_percentage is bigger than the period_used_percentage 
+and data used_percentage is higher than 70% 
+```
+binary_sensor:
+  - platform: template
+    sensors:
+      telenet_warning:
+        friendly_name: Telenet Warning
+        # entity_id: sensor.time
+        value_template: >
+           {{state_attr('sensor.telenet_telemeter','used_percentage') > state_attr('sensor.telenet_telemeter','period_used_percentage') and state_attr('sensor.telenet_telemeter','used_percentage') > 70}}
+```
+This binary sensor can than be used in a conditional lovelace card, example:
+```
+type: conditional
+conditions:
+  - entity: binary_sensor.telenet_warning
+    state: 'On'
+card:
+  type: markdown
+  content: >-
+    Total used:
+    **{{state_attr('sensor.telenet_telemeter','used_percentage')}}%**
+    ({{(state_attr('sensor.telenet_telemeter','includedvolume_usage')/1024/1024)|int}}GB
+    van {{state_attr('sensor.telenet_telemeter','total_volume')|int}}GB)
+    {{state_attr('sensor.telenet_telemeter','period_days_left')|int}} days remaining
+```
