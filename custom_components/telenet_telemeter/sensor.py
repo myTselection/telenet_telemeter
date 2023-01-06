@@ -142,14 +142,14 @@ class Component(Entity):
             ATTR_ATTRIBUTION: NAME,
             "last update": self._data._telemeter.get('internetusage')[0].get('lastupdated'),
             "used_percentage": self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('usedpercentage'),
-            # "included_volume": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].includedvolume,
-            # "wifree_usage": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].totalusage.wifree,
-            # "includedvolume_usage": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].totalusage.includedvolume,
-            # "extendedvolume_usage": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].totalusage.extendedvolume,
-            # "period_start": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].periodstart,
-            # "period_end": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].periodend,
-            # "product": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].producttype,            
-            "telemeter_json": self._data._telemeter
+            "included_volume": self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume'),
+            "wifree_usage": self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree'),
+            "includedvolume_usage": self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume'),
+            "extendedvolume_usage": self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume'),
+            "period_start": self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'),
+            "period_end": self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodend'),
+            "product": self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype')         
+            #, "telemeter_json": self._data._telemeter
         }
 
     @property
