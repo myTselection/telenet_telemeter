@@ -112,7 +112,7 @@ class Component(Entity):
     @property
     def state(self):
         """Return the state of the sensor."""
-        return self._data._telemeter.internetusage[0].availableperiods[0].usages[0].usedpercentage
+        return self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('usedpercentage')
 
     async def async_update(self):
         await self._data.update()
@@ -140,15 +140,15 @@ class Component(Entity):
         """Return the state attributes."""
         return {
             ATTR_ATTRIBUTION: NAME,
-            "last update": self._data._telemeter.internetusage[0].lastupdated,
-            "used_percentage": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].usedpercentage,
-            "included_volume": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].includedvolume,
-            "wifree_usage": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].totalusage.wifree,
-            "includedvolume_usage": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].totalusage.includedvolume,
-            "extendedvolume_usage": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].totalusage.extendedvolume,
-            "period_start": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].periodstart,
-            "period_end": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].periodend,
-            "product": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].producttype,            
+            "last update": self._data._telemeter.get('internetusage')[0].get('lastupdated'),
+            "used_percentage": self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('usedpercentage'),
+            # "included_volume": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].includedvolume,
+            # "wifree_usage": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].totalusage.wifree,
+            # "includedvolume_usage": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].totalusage.includedvolume,
+            # "extendedvolume_usage": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].totalusage.extendedvolume,
+            # "period_start": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].periodstart,
+            # "period_end": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].periodend,
+            # "product": self._data._telemeter.internetusage[0].availableperiods[0].usages[0].producttype,            
             "telemeter_json": self._data._telemeter
         }
 
