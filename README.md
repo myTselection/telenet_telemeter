@@ -63,7 +63,6 @@ binary_sensor:
     sensors:
       telenet_warning:
         friendly_name: Telenet Warning
-        # entity_id: sensor.time
         value_template: >
            {{state_attr('sensor.telenet_telemeter','used_percentage') > state_attr('sensor.telenet_telemeter','period_used_percentage') and state_attr('sensor.telenet_telemeter','used_percentage') > 70}}
 ```
