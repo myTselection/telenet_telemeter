@@ -56,8 +56,8 @@ cards:
 <p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/Markdown%20Gauge%20Card%20example.png"/></p>
 
 ### Example conditional card:
-If a conditional card is desired to show a warning when high data used and many dayes left. For such a conditional card, an extra binary sensor can be defined in `configuration.yml` 
-If data used_percentage (data used %) is bigger than the period_used_percentage (time % in current perdio) and data used_percentage is higher than 70% 
+If a conditional card is desired to show a warning when high data used and many days are left. For such a conditional card, an extra binary sensor can be defined in `configuration.yml` 
+If data used_percentage (data used %) is bigger than the period_used_percentage (time % in current period) and data used_percentage is higher than 70% 
 ```
 binary_sensor:
   - platform: template
@@ -80,6 +80,6 @@ card:
     Total used:
     **{{state_attr('sensor.telenet_telemeter','used_percentage')}}%**
     ({{(state_attr('sensor.telenet_telemeter','includedvolume_usage')/1024/1024)|int}}GB
-    van {{state_attr('sensor.telenet_telemeter','total_volume')|int}}GB)
+    of {{state_attr('sensor.telenet_telemeter','total_volume')|int}}GB)
     {{state_attr('sensor.telenet_telemeter','period_days_left')|int}} days remaining
 ```
