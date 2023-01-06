@@ -19,7 +19,6 @@ Based on source code of [Killian Meersman](https://github.com/KillianMeersman/te
 ## TODO
 - Add logo
 - Support mobile usage in separate sensor
-- Add decent release numbers
 - Add 'reload' option
 - Register repo as standard HACS repo
 
