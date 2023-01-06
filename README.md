@@ -7,10 +7,11 @@ discussion [Home Assistant Forum](https://community.home-assistant.io/t/telenet-
 
 
 ## Installation
-- HACS: add url https://github.com/myTselection/telenet_telemeter as custom repository 
+- [HACS](https://hacs.xyz/): add url https://github.com/myTselection/telenet_telemeter as custom repository (HACS > Integration > option: Custom Repositories)
 - Restart Home Assistant
-- Add 'Telenet Telemeter' integration via Settings > 'Devices and Services' > 'Integrations'
+- Add 'Telenet Telemeter' integration via HA Settings > 'Devices and Services' > 'Integrations'
 - Provide Telenet username and password
+- A sensor Telenet Telemeter should become available with the percentage of data left and extra attributes on usage and period start/end etc.
 
 ## TODO
 - Add logo
