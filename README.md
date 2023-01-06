@@ -6,7 +6,7 @@ discussion [Home Assistant Forum](https://community.home-assistant.io/t/telenet-
 
 Based on source code of [Killian Meersman](https://github.com/KillianMeersman/telemeter), all credits go to him. I've only encapsulated it into a HA HACS Custom Component. 
 <p align="right"><img src="logo.png" width="128"/></p>
-<p align="center"><img src="Gauge Card Configuration.png" width="128"/></p>
+<p align="center"><img src="Gauge Card Configuration.png"/></p>
 
 
 ## Installation
