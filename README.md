@@ -3,6 +3,8 @@
 # telenet_telemeter (Beta)
 [Telenet Telemeter](https://www2.telenet.be/nl/business/klantenservice/raadpleeg-uw-internetverbruik/) Home Assistant custom component
 discussion [Home Assistant Forum](https://community.home-assistant.io/t/telenet-telemeter-isp-monthly-data-usage/444810)
+
+Based on source code of [Killian Meersman](https://github.com/KillianMeersman/telemeter), all credits go to him. I've only encapsulated it into a HA HACS Custom Component. 
 <p align="right"><img src="custom_components/telenet_telemeter/logo.png" width="128"/></p>
 
 
