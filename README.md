@@ -38,6 +38,7 @@ cards:
       Period {{state_attr('sensor.telenet_telemeter','period_start') |
       as_timestamp | timestamp_custom("%d-%m-%Y")}} -
       {{state_attr('sensor.telenet_telemeter','period_end') | as_timestamp | timestamp_custom("%d-%m-%Y")}} 
+      Wi-Free usage: {{(state_attr('sensor.telenet_telemeter','wifree_usage')/1024 )| int}}MB
       {{state_attr('sensor.telenet_telemeter','product')}}, last update:
       *{{state_attr('sensor.telenet_telemeter','last update') | as_timestamp | timestamp_custom("%d-%m-%Y")}}*
   - type: gauge
