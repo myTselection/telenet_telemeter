@@ -19,7 +19,6 @@ Based on source code of [Killian Meersman](https://github.com/KillianMeersman/te
 ## TODO
 - Add logo
 - Support mobile usage in separate sensor
-- Add decent release numbers
 - Add 'reload' option
 - Register repo as standard HACS repo
 
@@ -39,6 +38,7 @@ cards:
       Period {{state_attr('sensor.telenet_telemeter','period_start') |
       as_timestamp | timestamp_custom("%d-%m-%Y")}} -
       {{state_attr('sensor.telenet_telemeter','period_end') | as_timestamp | timestamp_custom("%d-%m-%Y")}} 
+      Wi-Free usage: {{(state_attr('sensor.telenet_telemeter','wifree_usage')/1024 )| int}}MB
       {{state_attr('sensor.telenet_telemeter','product')}}, last update:
       *{{state_attr('sensor.telenet_telemeter','last update') | as_timestamp | timestamp_custom("%d-%m-%Y")}}*
   - type: gauge
@@ -56,15 +56,14 @@ cards:
 <p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/Markdown%20Gauge%20Card%20example.png"/></p>
 
 ### Example conditional card:
-If a conditional card is desired to show a warning when high data used and many dayes left. For such a conditional card, an extra binary sensor can be defined in `configuration.yml` 
-If data used_percentage (data used %) is bigger than the period_used_percentage (time % in current perdio) and data used_percentage is higher than 70% 
+If a conditional card is desired to show a warning when high data used and many days are left. For such a conditional card, an extra binary sensor can be defined in `configuration.yml` 
+If data used_percentage (data used %) is bigger than the period_used_percentage (time % in current period) and data used_percentage is higher than 70% 
 ```
 binary_sensor:
   - platform: template
     sensors:
       telenet_warning:
         friendly_name: Telenet Warning
-        # entity_id: sensor.time
         value_template: >
            {{state_attr('sensor.telenet_telemeter','used_percentage') > state_attr('sensor.telenet_telemeter','period_used_percentage') and state_attr('sensor.telenet_telemeter','used_percentage') > 70}}
 ```
@@ -80,6 +79,6 @@ card:
     Total used:
     **{{state_attr('sensor.telenet_telemeter','used_percentage')}}%**
     ({{(state_attr('sensor.telenet_telemeter','includedvolume_usage')/1024/1024)|int}}GB
-    van {{state_attr('sensor.telenet_telemeter','total_volume')|int}}GB)
+    of {{state_attr('sensor.telenet_telemeter','total_volume')|int}}GB)
     {{state_attr('sensor.telenet_telemeter','period_days_left')|int}} days remaining
 ```
