@@ -6,7 +6,7 @@ from homeassistant.core import Config, HomeAssistant
 
 DOMAIN = "telenet_telemeter"
 NAME = "Telenet Telemeter"
-VERSION = "0.0.2"
+VERSION = "0.0.4"
 ISSUEURL = "https://github.com/myTselection/telenet_telemeter/issues"
 
 STARTUP = """
@@ -44,6 +44,17 @@ async def async_setup(hass, config):
             DOMAIN, context={"source": config_entries.SOURCE_IMPORT}, data={}
         )
     )
+    return True
+
+async def async_update_options(hass: HomeAssistant, config_entry: ConfigEntry):
+    await hass.config_entries.async_reload(config_entry.entry_id)
+
+async def update_listener(hass: HomeAssistant, config_entry: ConfigEntry):
+    """Reload integration when options changed"""
+    await hass.config_entries.async_reload(config_entry.entry_id)
+
+async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry):
+    await hass.config_entries.async_unload_platforms(config_entry, "sensor")
     return True
 
 

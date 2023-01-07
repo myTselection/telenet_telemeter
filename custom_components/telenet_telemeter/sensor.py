@@ -73,7 +73,7 @@ async def async_remove_entry(hass, config_entry):
         _LOGGER.info("Successfully removed sensor from the integration")
     except ValueError:
         pass
-
+        
 
 class ComponentData:
     def __init__(self, username, password, client, hass):
@@ -102,6 +102,9 @@ class ComponentData:
     async def update(self):
         await self._update()
         return self._telemeter
+    
+    def clear_session():
+        self._session : None
 
 
 
@@ -126,6 +129,13 @@ class Component(Entity):
 
     async def async_update(self):
         await self._data.update()
+        
+        
+    async def async_will_remove_from_hass(self):
+        """Clean up after entity before removal."""
+        _LOGGER.info("async_will_remove_from_hass " + NAME)
+        self._data.clear_session()
+
 
     @property
     def icon(self) -> str:
