@@ -142,7 +142,7 @@ class Component(Entity):
         self._period_end_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodend'), _TELENET_DATETIME_FORMAT)
         tz_info = self._period_end_date.tzinfo
         self._period_length = (self._period_end_date - self._period_start_date).days
-        self._period_left = (self._period_end_date - datetime.now(tz_info)).days
+        self._period_left = (self._period_end_date - datetime.now(tz_info)).days + 2
         _LOGGER.info(f"telemeter end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}")
         self._period_used = self._period_length - self._period_left
         
