@@ -25,7 +25,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 )
 
 #TODO check if needed
-MIN_TIME_BETWEEN_UPDATES = timedelta(hours=4)
+MIN_TIME_BETWEEN_UPDATES = timedelta(hours=2)
 
 
 async def dry_setup(hass, config_entry, async_add_devices):
@@ -112,15 +112,22 @@ class Component(Entity):
     def __init__(self, data, hass):
         self._data = data
         self._hass = hass
-        self._last_update =  self._data._telemeter.get('internetusage')[0].get('lastupdated')
-        self._used_percentage = round(100 * ((self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume') + self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')) / ( self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume') + self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume'))))
-        self._period_start_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
-        self._period_end_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodend'), _TELENET_DATETIME_FORMAT)
-        tz_info = self._period_end_date.tzinfo
-        self._period_length = (self._period_end_date - self._period_start_date).days
-        self._period_left = (self._period_end_date - datetime.now(tz_info)).days
-        self._period_used = self._period_length - self._period_left
-        self._total_volume = (self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume') + self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')) / 1024 / 1024
+        self._last_update = None
+        self._used_percentage = None
+        self._period_start_date = None
+        self._period_end_date = None
+        tz_info = None
+        self._period_length = None
+        self._period_left = None
+        self._period_used = None
+        self._total_volume = None
+        self._included_volume = None
+        self._extended_volume = None
+        self._wifree_usage = None
+        self._includedvolume_usage = None
+        self._extendedvolume_usage = None
+        self._period_used_percentage = None
+        self._product = None
 
     @property
     def state(self):
@@ -129,6 +136,40 @@ class Component(Entity):
 
     async def async_update(self):
         await self._data.update()
+        self._last_update =  self._data._telemeter.get('internetusage')[0].get('lastupdated')
+        self._product = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype') 
+        self._period_start_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
+        self._period_end_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodend'), _TELENET_DATETIME_FORMAT)
+        tz_info = self._period_end_date.tzinfo
+        self._period_length = (self._period_end_date - self._period_start_date).days
+        self._period_left = (self._period_end_date - datetime.now(tz_info)).days
+        _LOGGER.info(f"telemeter end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}")
+        self._period_used = self._period_length - self._period_left
+        
+        if self._product == "EasyINT":
+            self._used_percentage = round(100 * ((self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume') + self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')) / ( self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume') + self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume'))))
+            
+            self._total_volume = (self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume') + self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')) / 1024 / 1024
+            self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
+            self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')
+            
+            self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+            self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
+            self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
+            
+            self._period_used_percentage = round(100 * (self._period_used / self._period_length))
+        else:
+            self._used_percentage = round(100 * ((self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume') + self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')) / ( self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume') + self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume'))))
+            
+            self._total_volume = (self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume') + self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')) / 1024 / 1024
+            self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
+            self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')
+            
+            self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+            self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
+            self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
+            
+            self._period_used_percentage = round(100 * (self._period_used / self._period_length))
         
         
     async def async_will_remove_from_hass(self):
@@ -148,7 +189,6 @@ class Component(Entity):
     def unique_id(self) -> str:
         """Return the name of the sensor."""
         return (
-            # NAME + f"_{self._data._username.replace('-', '_')}"
             NAME
         )
 
@@ -163,17 +203,17 @@ class Component(Entity):
             ATTR_ATTRIBUTION: NAME,
             "last update": self._last_update,
             "used_percentage": self._used_percentage,
-            "included_volume": self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume'),
-            "extended_volume": self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume'),
+            "included_volume": self._included_volume,
+            "extended_volume": self._extended_volume,
             "total_volume": self._total_volume,
-            "wifree_usage": self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree'),
-            "includedvolume_usage": self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume'),
-            "extendedvolume_usage": self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume'),
+            "wifree_usage": self._wifree_usage,
+            "includedvolume_usage": self._includedvolume_usage,
+            "extendedvolume_usage": self._extendedvolume_usage,
             "period_start": self._period_start_date,
             "period_end": self._period_end_date,
             "period_days_left": self._period_left,
-            "period_used_percentage": round(100 * (self._period_used / self._period_length)),
-            "product": self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype'),      
+            "period_used_percentage": self._period_used_percentage,
+            "product": self._product,
             "telemeter_json": self._data._telemeter
         }
 

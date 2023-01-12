@@ -192,7 +192,7 @@ class TelenetSession(object):
             timeout=10,
         )
         _LOGGER.info("telemeter result status code: " + str(response.status_code))
-        _LOGGER.debug("telemeter result " + response.text)
+        _LOGGER.info("telemeter result " + response.text)
         assert response.status_code == 200
         # return next(Telemeter.from_json(response.json()))
         return response.json()
