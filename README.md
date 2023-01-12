@@ -68,17 +68,17 @@ binary_sensor:
            {{state_attr('sensor.telenet_telemeter','used_percentage') > state_attr('sensor.telenet_telemeter','period_used_percentage') and state_attr('sensor.telenet_telemeter','used_percentage') > 70}}
 ```
 This binary sensor can than be used in a conditional lovelace card, example:
-```
+```   
 type: conditional
 conditions:
   - entity: binary_sensor.telenet_warning
-    state: 'On'
+    state: 'on'
 card:
   type: markdown
   content: >-
     Total used:
     **{{state_attr('sensor.telenet_telemeter','used_percentage')}}%**
-    ({{(state_attr('sensor.telenet_telemeter','includedvolume_usage')/1024/1024)|int}}GB
+    ({{((state_attr('sensor.telenet_telemeter','includedvolume_usage')+state_attr('sensor.telenet_telemeter','extendedvolume_usage')+state_attr('sensor.telenet_telemeter','wifree_usage'))/1024/1024)|int}}GB
     of {{state_attr('sensor.telenet_telemeter','total_volume')|int}}GB)
     {{state_attr('sensor.telenet_telemeter','period_days_left')|int}} days remaining
 ```
