@@ -32,7 +32,7 @@ cards:
       <img src="https://raw.githubusercontent.com/myTselection/telenet_telemeter/main/logo.png" width="30"/>  **Telenet Telemeter**
       ### Total used:
       {{state_attr('sensor.telenet_telemeter','used_percentage')}}%
-      ({{(((state_attr('sensor.telenet_telemeter','includedvolume_usage') or 0) + (state_attr('sensor.telenet_telemeter','extendedvolume_usage') or 0) + (state_attr('sensor.telenet_telemeter','wifree_usage') or 0) + (state_attr('sensor.telenet_telemeter','peak_usage'))/1024/1024)|int}}GB
+      ({{(((state_attr('sensor.telenet_telemeter','includedvolume_usage') or 0) + (state_attr('sensor.telenet_telemeter','extendedvolume_usage') or 0) + (state_attr('sensor.telenet_telemeter','wifree_usage') or 0) + (state_attr('sensor.telenet_telemeter','peak_usage') or 0)/1024/1024)|int}}GB
       of {{state_attr('sensor.telenet_telemeter','total_volume')|int}}GB)
       #### {{state_attr('sensor.telenet_telemeter','period_days_left')|int}} days remaining
       Period {{state_attr('sensor.telenet_telemeter','period_start') |
