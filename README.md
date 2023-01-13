@@ -16,11 +16,15 @@ Based on source code of [Killian Meersman](https://github.com/KillianMeersman/te
 - Provide Telenet username and password
 - A sensor Telenet Telemeter should become available with the percentage of data left and extra attributes on usage and period start/end etc.
 
-## TODO
-- Add logo
-- Support mobile usage in separate sensor
-- Add 'reload' option
-- Register repo as standard HACS repo
+## Status
+Still some optimisations are planned, see [Issues](https://github.com/myTselection/telenet_telemeter/issues) section in GitHub.
+
+## Technical pointers
+The main logic and API connection related code can be found within source code telenet_telemeter/custom_components/telenet_telemeter:
+- [sensor.py](https://github.com/myTselection/telenet_telemeter/blob/main/custom_components/telenet_telemeter/sensor.py)
+- [utils.py](https://github.com/myTselection/telenet_telemeter/blob/main/custom_components/telenet_telemeter/utils.py) -> mainly TelenetSession class
+
+All other files just contain boilerplat code for the integration to work wtihin HA or to have some constants/strings/translations.
 
 ## Example usage:
 ### Gauge & Markdown
@@ -32,7 +36,7 @@ cards:
       <img src="https://raw.githubusercontent.com/myTselection/telenet_telemeter/main/logo.png" width="30"/>  **Telenet Telemeter**
       ### Total used:
       {{state_attr('sensor.telenet_telemeter','used_percentage')}}%
-      ({{(((state_attr('sensor.telenet_telemeter','includedvolume_usage') or 0) + (state_attr('sensor.telenet_telemeter','extendedvolume_usage') or 0) + (state_attr('sensor.telenet_telemeter','wifree_usage') or 0) + (state_attr('sensor.telenet_telemeter','peak_usage'))/1024/1024)|int}}GB
+      ({{(((state_attr('sensor.telenet_telemeter','includedvolume_usage') or 0) + (state_attr('sensor.telenet_telemeter','extendedvolume_usage') or 0) + (state_attr('sensor.telenet_telemeter','wifree_usage') or 0) + (state_attr('sensor.telenet_telemeter','peak_usage') or 0)/1024/1024)|int}}GB
       of {{state_attr('sensor.telenet_telemeter','total_volume')|int}}GB)
       #### {{state_attr('sensor.telenet_telemeter','period_days_left')|int}} days remaining
       Period {{state_attr('sensor.telenet_telemeter','period_start') |
@@ -56,7 +60,7 @@ cards:
 <p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/Markdown%20Gauge%20Card%20example.png"/></p>
 
 ### Example conditional card:
-If a conditional card is desired to show a warning when high data used and many days are left. For such a conditional card, an extra binary sensor can be defined in `configuration.yml` 
+A conditional card might be desired to show a warning when high data used and many days are left. For such a conditional card, an extra binary sensor can be defined in `configuration.yml` 
 If data used_percentage (data used %) is bigger than the period_used_percentage (time % in current period) and data used_percentage is higher than 70% 
 ```
 binary_sensor:
@@ -67,7 +71,7 @@ binary_sensor:
         value_template: >
            {{state_attr('sensor.telenet_telemeter','used_percentage') > state_attr('sensor.telenet_telemeter','period_used_percentage') and state_attr('sensor.telenet_telemeter','used_percentage') > 70}}
 ```
-This binary sensor can than be used in a conditional lovelace card, example:
+This binary sensor can than be used in a conditional lovelace card. The info will only be shown in case you risk to be put on small band soon. Example:
 ```   
 type: conditional
 conditions:
