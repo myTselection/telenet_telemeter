@@ -56,7 +56,7 @@ cards:
 <p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/Markdown%20Gauge%20Card%20example.png"/></p>
 
 ### Example conditional card:
-If a conditional card is desired to show a warning when high data used and many days are left. For such a conditional card, an extra binary sensor can be defined in `configuration.yml` 
+A conditional card might be desired to show a warning when high data used and many days are left. For such a conditional card, an extra binary sensor can be defined in `configuration.yml` 
 If data used_percentage (data used %) is bigger than the period_used_percentage (time % in current period) and data used_percentage is higher than 70% 
 ```
 binary_sensor:
@@ -67,7 +67,7 @@ binary_sensor:
         value_template: >
            {{state_attr('sensor.telenet_telemeter','used_percentage') > state_attr('sensor.telenet_telemeter','period_used_percentage') and state_attr('sensor.telenet_telemeter','used_percentage') > 70}}
 ```
-This binary sensor can than be used in a conditional lovelace card, example:
+This binary sensor can than be used in a conditional lovelace card. The info will only be shown in case you risk to be put on small band soon. Example:
 ```   
 type: conditional
 conditions:
