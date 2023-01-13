@@ -16,11 +16,15 @@ Based on source code of [Killian Meersman](https://github.com/KillianMeersman/te
 - Provide Telenet username and password
 - A sensor Telenet Telemeter should become available with the percentage of data left and extra attributes on usage and period start/end etc.
 
-## TODO
-- Add logo
-- Support mobile usage in separate sensor
-- Add 'reload' option
-- Register repo as standard HACS repo
+## Status
+Still some optimisations are planned, see [Issues](https://github.com/myTselection/telenet_telemeter/issues) section in GitHub.
+
+## Technical pointers
+The main logic and API connection related code can be found within source code telenet_telemeter/custom_components/telenet_telemeter:
+- [sensor.py](https://github.com/myTselection/telenet_telemeter/blob/main/custom_components/telenet_telemeter/sensor.py)
+- [utils.py](https://github.com/myTselection/telenet_telemeter/blob/main/custom_components/telenet_telemeter/utils.py) -> mainly TelenetSession class
+
+All other files just contain boilerplat code for the integration to work wtihin HA or to have some constants/strings/translations.
 
 ## Example usage:
 ### Gauge & Markdown
