@@ -147,7 +147,7 @@ class Component(Entity):
         self._period_left = (self._period_end_date - datetime.now(tz_info)).days + 2
         _LOGGER.info(f"telemeter end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}")
         self._period_used = self._period_length - self._period_left
-        self._period_used_percentage = round(100 * (self._period_used / self._period_length))
+        self._period_used_percentage = round(100 * (self._period_used / self._period_length),2)
         
         self._total_volume = (self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume') + self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')) / 1024 / 1024
         
@@ -160,7 +160,7 @@ class Component(Entity):
             self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
             self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
             
-            self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)))
+            self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),2)
             
         else:
             #when peak indication is available, only use peak + wifree in total used counter, as offpeak is not attributed
@@ -168,7 +168,7 @@ class Component(Entity):
             self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
             self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
             
-            self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)))
+            self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),2)
             
         
         
