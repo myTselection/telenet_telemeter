@@ -229,7 +229,7 @@ class ComponentInternet(Entity):
     def unique_id(self) -> str:
         """Return the name of the sensor."""
         return (
-            NAME + "_internet"
+            NAME
         )
 
     @property
