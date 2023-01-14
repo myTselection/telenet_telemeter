@@ -6,7 +6,7 @@ from homeassistant.core import Config, HomeAssistant
 
 DOMAIN = "telenet_telemeter"
 NAME = "Telenet Telemeter"
-VERSION = "0.0.4"
+VERSION = "0.2.0"
 ISSUEURL = "https://github.com/myTselection/telenet_telemeter/issues"
 
 STARTUP = """
@@ -21,7 +21,6 @@ If you have any issues with this you need to open an issue here:
     name=NAME, version=VERSION, issueurl=ISSUEURL
 )
 
-#TODO garbage_types = ["paper", "bio", "mixed", "metal", "plastic"]
 
 _LOGGER = logging.getLogger(__name__)
 

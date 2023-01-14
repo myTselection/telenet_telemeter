@@ -23,6 +23,14 @@ def check_settings(config, hass):
         _LOGGER.debug("password was not set")
     else:
         return True
+    if not config.get("internet"):
+        _LOGGER.debug("internet bool was not set")
+    else:
+        return True
+    if not config.get("mobile"):
+        _LOGGER.debug("mobile bool was not set")
+    else:
+        return True
 
     raise vol.Invalid("Missing settings to setup the sensor.")
 
@@ -89,4 +97,17 @@ class TelenetSession(object):
         _LOGGER.info("telemeter result " + response.text)
         assert response.status_code == 200
         # return next(Telemeter.from_json(response.json()))
+        return response.json()
+        
+    def mobile(self):
+        response = self.s.get(
+            "https://api.prd.telenet.be/ocapi/public/?p=mobileusage",
+            headers={
+                "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
+            },
+            timeout=10,
+        )
+        _LOGGER.info("mobile result status code: " + str(response.status_code))
+        _LOGGER.info("mobile result " + response.text)
+        assert response.status_code == 200
         return response.json()
