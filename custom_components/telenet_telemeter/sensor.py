@@ -185,7 +185,7 @@ class ComponentInternet(Entity):
         tz_info = self._period_end_date.tzinfo
         self._period_length = (self._period_end_date - self._period_start_date).days
         self._period_left = (self._period_end_date - datetime.now(tz_info)).days + 2
-        _LOGGER.info(f"telemeter end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}")
+        _LOGGER.debug(f"telemeter end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}")
         self._period_used = self._period_length - self._period_left
         self._period_used_percentage = round(100 * (self._period_used / self._period_length),2)
         
@@ -320,7 +320,7 @@ class ComponentMobile(Entity):
         # tz_info = self._period_end_date.tzinfo
         # self._period_length = (self._period_end_date - self._period_start_date).days
         # self._period_left = (self._period_end_date - datetime.now(tz_info)).days + 2
-        # _LOGGER.info(f"telemeter end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}")
+        # _LOGGER.debug(f"telemeter end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}")
         # self._period_used = self._period_length - self._period_left
         # self._period_used_percentage = round(100 * (self._period_used / self._period_length),2)
         
@@ -396,7 +396,6 @@ class ComponentMobile(Entity):
             "period_days_left": self._period_left,
             "period_used_percentage": self._period_used_percentage,
             "product": self._product,
-            "telemeter_json": self._data._telemeter,
             "mobile_json": self._data._mobilemeter
         }
 
