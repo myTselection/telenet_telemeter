@@ -50,6 +50,7 @@ async def dry_setup(hass, config_entry, async_add_devices):
             hass
         )
         await data_internet._init()
+        assert data_internet._telemeter is not None
         sensor = ComponentInternet(data_internet, hass)
         sensors.append(sensor)
     if mobile:
@@ -62,6 +63,7 @@ async def dry_setup(hass, config_entry, async_add_devices):
             hass
         )
         await data_mobile._init()
+        assert data_mobile._mobilemeter is not None
         sensor = ComponentMobile(data_mobile, hass)
         sensors.append(sensor)
     async_add_devices(sensors)
@@ -345,11 +347,8 @@ class ComponentMobile(Entity):
             
             # self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),2)
             # self._last_update =  self._data._mobilemeter.get('product')[0].get('lastupdated')
-        mobileproduct = self._data._mobilemeter.get('product')
-        if mobileproduct:
-            mobileproduct = mobileproduct[0].get('label')
-        _LOGGER.info(f"mobilemeter product: {mobileproduct}")
-        # mobileproduct = self._data._mobilemeter.get('product')[0].get('label')
+        self._product = self._data._mobilemeter.get('product')[0].get('label')
+        _LOGGER.info(f"mobilemeter product: {self._product}")
             
         
     async def async_will_remove_from_hass(self):
