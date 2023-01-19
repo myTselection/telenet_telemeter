@@ -64,6 +64,7 @@ async def dry_setup(hass, config_entry, async_add_devices):
         )
         await data_mobile._init()
         assert data_mobile._mobilemeter is not None
+        # for mobilenr in data_mobile._mobilemeter
         sensor = ComponentMobile(data_mobile, hass)
         sensors.append(sensor)
     async_add_devices(sensors)
@@ -315,9 +316,9 @@ class ComponentMobile(Entity):
 
     async def async_update(self):
         await self._data.update()
-        # self._last_update =  self._data._telemeter.get('internetusage')[0].get('lastupdated')
-        # self._product = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype') 
-        # self._period_start_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
+        # self._last_update =  self._data._mobilemeter.get('internetusage')[0].get('lastupdated')
+        # self._product = self._data._mobilemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype') 
+        # self._period_start_date = datetime.strptime(self._data._mobilemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
         # self._period_end_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodend'), _TELENET_DATETIME_FORMAT)
         # tz_info = self._period_end_date.tzinfo
         # self._period_length = (self._period_end_date - self._period_start_date).days
@@ -348,6 +349,7 @@ class ComponentMobile(Entity):
             # self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),2)
             # self._last_update =  self._data._mobilemeter.get('product')[0].get('lastupdated')
         self._product = self._data._mobilemeter.get('product')[0].get('label')
+        
         _LOGGER.info(f"mobilemeter product: {self._product}")
             
         

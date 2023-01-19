@@ -11,7 +11,6 @@
 					"internet": "Internet",
 					"mobile": "Mobile"
                 }
-                }
             },
             "edit": {
                 "title": "Telenet Telemeter",
@@ -21,7 +20,6 @@
                     "password": "Password",
 					"internet": "Internet",
 					"mobile": "Mobile"
-                }
                 }
             }
 
@@ -45,7 +43,6 @@
                     "password": "Password",
 					"internet": "Internet",
 					"mobile": "Mobile"
-                }
                 }
             }
         },
