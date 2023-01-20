@@ -1,6 +1,5 @@
 {
   "name": "Telenet Telemeter",
   "render_readme": true,
-  "iot_class": "cloud_polling",
   "country": ["BE"]
 }
