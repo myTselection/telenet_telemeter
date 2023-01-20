@@ -8,5 +8,6 @@
   "name": "Telenet Telemeter",
   "requirements": ["beautifulsoup4", "html5lib"],
   "version": "0.2.0",
-  "issue_tracker": "https://github.com/myTselection/telenet_telemeter/issues"
+  "issue_tracker": "https://github.com/myTselection/telenet_telemeter/issues",
+  "integration_type": "entity"
 }
