@@ -3,7 +3,6 @@
         "title": "Telenet Telemeter",
         "step": {
             "user": {
-                "title": "Telenet Telemeter",
                 "description": "Setup a Telenet Telementer sensor, username and password are required. Please indicate if internet and/or mobile usage is to be tracked.",
                 "data": {
                     "username": "Username",
