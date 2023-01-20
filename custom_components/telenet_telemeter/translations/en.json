@@ -13,7 +13,6 @@
                 }
             },
             "edit": {
-                "title": "Telenet Telemeter",
                 "description": "Edit Setup a Telenet Telemeter sensor, username and password are required. Please indicate if internet and/or mobile usage is to be tracked.",
                 "data": {
                     "username": "Username",
@@ -36,7 +35,6 @@
     "options": {
         "step": {
             "edit": {
-                "title": "Telenet Telemeter",
                 "description": "Edit setup a Telenet Telemeter sensor, username and password are required. Please indicate if internet and/or mobile usage is to be tracked.",
                 "data": {
                     "username": "Username",
