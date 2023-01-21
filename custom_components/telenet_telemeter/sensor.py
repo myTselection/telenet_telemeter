@@ -92,7 +92,6 @@ async def dry_setup(hass, config_entry, async_add_devices):
                         #assigned sensor
                         sensor = ComponentMobileAssigned(data_mobile, idxproduct, idxunprofile, idxunsubs, hass)
                         sensors.append(sensor)
-                
     async_add_devices(sensors)
 
 
@@ -144,13 +143,14 @@ class ComponentData:
             self._session = TelenetSession()
 
         if self._session:
-            await self._hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
+            # await self._hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
             _LOGGER.info("init login completed")
             if self._internet:
                 self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
                 _LOGGER.debug(f"init telemeter data: {self._telemeter}")
             if self._mobile:
                 self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.mobile())
+                # self._mobilemeter = {'mobileusage': [{'label': 'O1', 'specurl': 'https://api.prd.telenet.be/omapi/public/product/42797', 'identifier': 'O1_46172164', 'nextbillingdate': '2023-01-26T00:00:00.0+01:00', 'lastupdated': '2023-01-21T10:50:01.7+01:00', 'address': {'street': '', 'postalcode': '', 'municipality': '', 'country': '', 'housenr': '', 'addressid': ''}, 'unassigned': {'mobilesubscriptions': []}, 'profiles': [{'pid': '16517642', 'role': 'manager', 'firstname': '', 'lastname': '', 'nickname': '', 'paused': False, 'mobilesubscriptions': [{'mobile': '0477777777', 'sim': '', 'pin': '', 'puk': '', 'activationstate': 'active', 'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 272.9, 'remaining': '272,90', 'usedunits': 27.1, 'used': '27,10', 'usedpercentage': 9, 'unittype': 'GB', 'unlimited': True}, 'text': {'startunits': 30000.0, 'remainingunits': 29990.0, 'usedunits': 10.0, 'usedpercentage': 0, 'unittype': 'number', 'unlimited': True, 'scaledusedpercentage': 1}, 'voice': {'startunits': 180000, 'remainingunits': 174503, 'usedunits': 5497, 'usedpercentage': 3, 'unittype': 'seconds', 'unlimited': True, 'scaledusedpercentage': 36}}, 'options': [], 'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}, 'paused': False, 'mobileinternetonly': False}, {'mobile': '0488888888', 'sim': '', 'pin': '', 'puk': '', 'activationstate': 'active', 'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 290.21, 'remaining': '290,21', 'usedunits': 9.79, 'used': '9,79', 'usedpercentage': 3, 'unittype': 'GB', 'unlimited': True}}, 'options': [], 'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}, 'paused': False, 'mobileinternetonly': True}], 'aggregatedusage': {'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 263.11, 'remaining': '263,11', 'usedunits': 36.89, 'used': '36,89', 'usedpercentage': 12, 'unittype': 'GB', 'unlimited': True, 'scaledusedpercentage': 12}}, 'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}}}], 'sharedusage': {'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}, 'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 263.1, 'remaining': '263,1', 'usedunits': 36.9, 'used': '36,9', 'usedpercentage': 12, 'unittype': 'GB', 'unlimited': True}}, 'options': []}, 'freeride': {'active': False}, 'totalusage': {'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 263.1, 'remaining': '263,1', 'usedunits': 36.9, 'used': '36,9', 'usedpercentage': 12, 'unittype': 'GB'}}}}]}
                 _LOGGER.debug(f"init mobilemeter data: {self._mobilemeter}")
                 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
@@ -160,19 +160,20 @@ class ComponentData:
             self._session = TelenetSession()
 
         if self._session:
-            await self._hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
+            # await self._hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
             _LOGGER.info("login completed")
             if self._internet:
                 self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
                 _LOGGER.debug(f"telemeter data: {self._telemeter}")
             if self._mobile:
                 self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.mobile())
+                # self._mobilemeter = {'mobileusage': [{'label': 'O1', 'specurl': 'https://api.prd.telenet.be/omapi/public/product/42797', 'identifier': 'O1_46172164', 'nextbillingdate': '2023-01-26T00:00:00.0+01:00', 'lastupdated': '2023-01-21T10:50:01.7+01:00', 'address': {'street': '', 'postalcode': '', 'municipality': '', 'country': '', 'housenr': '', 'addressid': ''}, 'unassigned': {'mobilesubscriptions': []}, 'profiles': [{'pid': '16517642', 'role': 'manager', 'firstname': '', 'lastname': '', 'nickname': '', 'paused': False, 'mobilesubscriptions': [{'mobile': '0477777777', 'sim': '', 'pin': '', 'puk': '', 'activationstate': 'active', 'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 272.9, 'remaining': '272,90', 'usedunits': 27.1, 'used': '27,10', 'usedpercentage': 9, 'unittype': 'GB', 'unlimited': True}, 'text': {'startunits': 30000.0, 'remainingunits': 29990.0, 'usedunits': 10.0, 'usedpercentage': 0, 'unittype': 'number', 'unlimited': True, 'scaledusedpercentage': 1}, 'voice': {'startunits': 180000, 'remainingunits': 174503, 'usedunits': 5497, 'usedpercentage': 3, 'unittype': 'seconds', 'unlimited': True, 'scaledusedpercentage': 36}}, 'options': [], 'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}, 'paused': False, 'mobileinternetonly': False}, {'mobile': '0488888888', 'sim': '', 'pin': '', 'puk': '', 'activationstate': 'active', 'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 290.21, 'remaining': '290,21', 'usedunits': 9.79, 'used': '9,79', 'usedpercentage': 3, 'unittype': 'GB', 'unlimited': True}}, 'options': [], 'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}, 'paused': False, 'mobileinternetonly': True}], 'aggregatedusage': {'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 263.11, 'remaining': '263,11', 'usedunits': 36.89, 'used': '36,89', 'usedpercentage': 12, 'unittype': 'GB', 'unlimited': True, 'scaledusedpercentage': 12}}, 'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}}}], 'sharedusage': {'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}, 'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 263.1, 'remaining': '263,1', 'usedunits': 36.9, 'used': '36,9', 'usedpercentage': 12, 'unittype': 'GB', 'unlimited': True}}, 'options': []}, 'freeride': {'active': False}, 'totalusage': {'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 263.1, 'remaining': '263,1', 'usedunits': 36.9, 'used': '36,9', 'usedpercentage': 12, 'unittype': 'GB'}}}}]}
                 _LOGGER.debug(f"mobilemeter data: {self._mobilemeter}")
 
     async def update(self):
         await self._update()
     
-    def clear_session():
+    def clear_session(self):
         self._session : None
 
 
@@ -341,7 +342,7 @@ class ComponentMobileShared(Entity):
         await self._data.update()
         _LOGGER.info(f"mobilemeter ComponentMobileShared productid: {self._productid}")
         
-        mobileusage = data_mobile._mobilemeter.get('mobileusage')
+        mobileusage = self._data._mobilemeter.get('mobileusage')
         productdetails = mobileusage[self._productid]
         
         self._last_update =  productdetails.get('lastupdated')
@@ -360,26 +361,7 @@ class ComponentMobileShared(Entity):
         #todo: add checks on empty elements
         if sharedusage:
             self._total_volume = str(sharedusage.get('included').get('data').get('startunits')) + ' ' + sharedusage.get('included').get('data').get('unittype')
-            
-            # self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
-            # self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')
-            
-            # if self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None:
-                # #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
-                # self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
-                # self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
-                # self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
-                
             self._used_percentage = sharedusage.get('included').get('data').get('usedpercentage')
-                
-            # else:
-                # #when peak indication is available, only use peak + wifree in total used counter, as offpeak is not attributed
-                # self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
-                # self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
-                # self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
-                
-                # self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),2)
-                # self._last_update =  self._data._mobilemeter.get('product')[0].get('lastupdated')
                 
             
         
@@ -481,7 +463,7 @@ class ComponentMobileUnassigned(Entity):
         await self._data.update()
         _LOGGER.info(f"mobilemeter ComponentMobileShared subsid: {self._subsid}")
         
-        mobileusage = data_mobile._mobilemeter.get('mobileusage')
+        mobileusage = self._data._mobilemeter.get('mobileusage')
         productdetails = mobileusage[self._productid]
         
         self._last_update =  productdetails.get('lastupdated')
@@ -499,13 +481,17 @@ class ComponentMobileUnassigned(Entity):
         
         #todo: add checks on empty elements
         if unassignesub:
-            self._total_volume = str(unassignesub.get('included').get('data').get('startunits')) + ' ' + unassignesub.get('included').get('data').get('unittype')
-            self._total_volume_text = str(unassignesub.get('included').get('text').get('startunits')) + ' ' + unassignesub.get('included').get('text').get('unittype')
-            self._total_volume_voice = str(unassignesub.get('included').get('voice').get('startunits')) + ' ' + unassignesub.get('included').get('voice').get('unittype')
-            
-            self._used_percentage = unassignesub.get('included').get('data').get('usedpercentage')
-            self._used_percentage_text = unassignesub.get('included').get('text').get('usedpercentage')
-            self._used_percentage_voice = unassignesub.get('included').get('voice').get('usedpercentage')
+            if unassignesub.get('included').get('data'):
+                self._total_volume = str(unassignesub.get('included').get('data').get('startunits')) + ' ' + unassignesub.get('included').get('data').get('unittype')
+                self._used_percentage = unassignesub.get('included').get('data').get('usedpercentage')
+                
+            if unassignesub.get('included').get('text'):
+                self._total_volume_text = str(unassignesub.get('included').get('text').get('startunits')) + ' ' + unassignesub.get('included').get('text').get('unittype')
+                self._used_percentage_text = unassignesub.get('included').get('text').get('usedpercentage')
+                
+            if unassignesub.get('included').get('voice'):
+                self._total_volume_voice = str(unassignesub.get('included').get('voice').get('startunits')) + ' ' + unassignesub.get('included').get('voice').get('unittype')
+                self._used_percentage_voice = unassignesub.get('included').get('voice').get('usedpercentage')
             
             self._number = unassignesub.get('mobile')
             self._active = unassignesub.get('activationstate')
@@ -531,7 +517,7 @@ class ComponentMobileUnassigned(Entity):
     def unique_id(self) -> str:
         """Return the name of the sensor."""
         return (
-            NAME + " mobile " + self._number
+            NAME + " mobile " + str( self._data._mobilemeter.get('mobileusage')[self._productid].get('unassigned').get('mobilesubscriptions')[self._subsid].get('mobile'))
         )
 
     @property
@@ -545,11 +531,11 @@ class ComponentMobileUnassigned(Entity):
             ATTR_ATTRIBUTION: NAME,
             "last update": self._last_update,
             "used_percentage": self._used_percentage,
-            "used_percentage_text": self._used_percentage,
-            "used_percentage_voice": self._used_percentage,
+            "used_percentage_text": self._used_percentage_text,
+            "used_percentage_voice": self._used_percentage_voice,
             "total_volume": self._total_volume,
-            "_total_volume_text": self._total_volume,
-            "_total_volume_voice": self._total_volume,
+            "total_volume_text": self._total_volume_text,
+            "total_volume_voice": self._total_volume_voice,
             "period_start": self._period_start_date,
             "period_end": self._period_end_date,
             "period_days_left": self._period_left,
@@ -624,7 +610,7 @@ class ComponentMobileAssigned(Entity):
         await self._data.update()
         _LOGGER.info(f"mobilemeter ComponentMobileShared subsid: {self._subsid}")
         
-        mobileusage = data_mobile._mobilemeter.get('mobileusage')
+        mobileusage = self._data._mobilemeter.get('mobileusage')
         productdetails = mobileusage[self._productid]
         
         self._last_update =  productdetails.get('lastupdated')
@@ -645,13 +631,17 @@ class ComponentMobileAssigned(Entity):
             
             assignesub = profile.get('mobilesubscriptions')[self._subsid]
             if assignesub:
-                self._total_volume = str(assignesub.get('included').get('data').get('startunits')) + ' ' + assignesub.get('included').get('data').get('unittype')
-                self._total_volume_text = str(assignesub.get('included').get('text').get('startunits')) + ' ' + assignesub.get('included').get('text').get('unittype')
-                self._total_volume_voice = str(assignesub.get('included').get('voice').get('startunits')) + ' ' + assignesub.get('included').get('voice').get('unittype')
+                if assignesub.get('included').get('data'):
+                    self._total_volume = str(assignesub.get('included').get('data').get('startunits')) + ' ' + assignesub.get('included').get('data').get('unittype')
+                    self._used_percentage = assignesub.get('included').get('data').get('usedpercentage')
                 
-                self._used_percentage = assignesub.get('included').get('data').get('usedpercentage')
-                self._used_percentage_text = assignesub.get('included').get('text').get('usedpercentage')
-                self._used_percentage_voice = assignesub.get('included').get('voice').get('usedpercentage')
+                if assignesub.get('included').get('text'):
+                    self._total_volume_text = str(assignesub.get('included').get('text').get('startunits')) + ' ' + assignesub.get('included').get('text').get('unittype')
+                    self._used_percentage_text = assignesub.get('included').get('text').get('usedpercentage')
+                
+                if assignesub.get('included').get('voice'):
+                    self._total_volume_voice = str(assignesub.get('included').get('voice').get('startunits')) + ' ' + assignesub.get('included').get('voice').get('unittype')                
+                    self._used_percentage_voice = assignesub.get('included').get('voice').get('usedpercentage')
                 
                 self._number = assignesub.get('mobile')
                 self._active = assignesub.get('activationstate')
@@ -681,7 +671,7 @@ class ComponentMobileAssigned(Entity):
     def unique_id(self) -> str:
         """Return the name of the sensor."""
         return (
-            NAME + " mobile " + self._number
+            NAME + " mobile " + str(self._data._mobilemeter.get('mobileusage')[self._productid].get('profiles')[self._profileid].get('mobilesubscriptions')[self._subsid].get('mobile'))
         )
 
     @property
@@ -695,11 +685,11 @@ class ComponentMobileAssigned(Entity):
             ATTR_ATTRIBUTION: NAME,
             "last update": self._last_update,
             "used_percentage": self._used_percentage,
-            "used_percentage_text": self._used_percentage,
-            "used_percentage_voice": self._used_percentage,
+            "used_percentage_text": self._used_percentage_text,
+            "used_percentage_voice": self._used_percentage_voice,
             "total_volume": self._total_volume,
-            "_total_volume_text": self._total_volume,
-            "_total_volume_voice": self._total_volume,
+            "total_volume_text": self._total_volume_text,
+            "total_volume_voice": self._total_volume_voice,
             "period_start": self._period_start_date,
             "period_end": self._period_end_date,
             "period_days_left": self._period_left,
@@ -738,142 +728,3 @@ class ComponentMobileAssigned(Entity):
     def friendly_name(self) -> str:
         return self.unique_id
   
-
-#not used
-class ComponentMobile(Entity):
-    def __init__(self, data, hass):
-        self._data = data
-        self._hass = hass
-        self._last_update = None
-        self._used_percentage = None
-        self._period_start_date = None
-        self._period_end_date = None
-        tz_info = None
-        self._period_length = None
-        self._period_left = None
-        self._period_used = None
-        self._total_volume = None
-        self._included_volume = None
-        self._extended_volume = None
-        self._wifree_usage = None
-        self._includedvolume_usage = None
-        self._extendedvolume_usage = None
-        self._period_used_percentage = None
-        self._product = None
-        self._peak_usage = None
-        self._offpeak_usage = None
-
-    @property
-    def state(self):
-        """Return the state of the sensor."""
-        return self._used_percentage
-
-    async def async_update(self):
-        await self._data.update()
-        # self._last_update =  self._data._mobilemeter.get('internetusage')[0].get('lastupdated')
-        # self._product = self._data._mobilemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype') 
-        # self._period_start_date = datetime.strptime(self._data._mobilemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
-        # self._period_end_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodend'), _TELENET_DATETIME_FORMAT)
-        # tz_info = self._period_end_date.tzinfo
-        # self._period_length = (self._period_end_date - self._period_start_date).days
-        # self._period_left = (self._period_end_date - datetime.now(tz_info)).days + 2
-        # _LOGGER.debug(f"telemeter end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}")
-        # self._period_used = self._period_length - self._period_left
-        # self._period_used_percentage = round(100 * (self._period_used / self._period_length),2)
-        
-        # self._total_volume = (self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume') + self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')) / 1024 / 1024
-        
-        # self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
-        # self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')
-        
-        # if self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None:
-            # #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
-            # self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
-            # self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
-            # self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
-            
-            # self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),2)
-            
-        # else:
-            # #when peak indication is available, only use peak + wifree in total used counter, as offpeak is not attributed
-            # self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
-            # self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
-            # self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
-            
-            # self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),2)
-            # self._last_update =  self._data._mobilemeter.get('product')[0].get('lastupdated')
-        self._product = self._data._mobilemeter.get('product')[0].get('label')
-        
-        _LOGGER.info(f"mobilemeter product: {self._product}")
-            
-        
-    async def async_will_remove_from_hass(self):
-        """Clean up after entity before removal."""
-        _LOGGER.info("async_will_remove_from_hass " + NAME)
-        self._data.clear_session()
-
-
-    @property
-    def icon(self) -> str:
-        """Shows the correct icon for container."""
-        return "mdi:check-network-outline"
-        #alternative: 
-        #return "mdi:wifi_tethering_error"
-        
-    @property
-    def unique_id(self) -> str:
-        """Return the name of the sensor."""
-        return (
-            NAME + "_mobile"
-        )
-
-    @property
-    def name(self) -> str:
-        return self.unique_id
-
-    @property
-    def extra_state_attributes(self) -> dict:
-        """Return the state attributes."""
-        return {
-            ATTR_ATTRIBUTION: NAME,
-            "last update": self._last_update,
-            "used_percentage": self._used_percentage,
-            "included_volume": self._included_volume,
-            "extended_volume": self._extended_volume,
-            "total_volume": self._total_volume,
-            "wifree_usage": self._wifree_usage,
-            "includedvolume_usage": self._includedvolume_usage,
-            "extendedvolume_usage": self._extendedvolume_usage,
-            "peak_usage": self._peak_usage, 
-            "offpeak_usage": self._offpeak_usage,
-            "period_start": self._period_start_date,
-            "period_end": self._period_end_date,
-            "period_days_left": self._period_left,
-            "period_used_percentage": self._period_used_percentage,
-            "product": self._product,
-            "mobile_json": self._data._mobilemeter
-        }
-
-    @property
-    def device_info(self) -> dict:
-        """I can't remember why this was needed :D"""
-        return {
-            "identifiers": {(DOMAIN, self.unique_id)},
-            "name": self.name,
-            "manufacturer": DOMAIN,
-        }
-
-    @property
-    def unit(self) -> int:
-        """Unit"""
-        return int
-
-    @property
-    def unit_of_measurement(self) -> str:
-        """Return the unit of measurement this sensor expresses itself in."""
-        return "%"
-
-    @property
-    def friendly_name(self) -> str:
-        return self.unique_id
-        
