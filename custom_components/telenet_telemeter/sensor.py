@@ -68,7 +68,7 @@ async def dry_setup(hass, config_entry, async_add_devices):
         # for mobilenr in data_mobile._mobilemeter
         mobileusage = data_mobile._mobilemeter.get('mobileusage')
         for idxproduct, product in enumerate(mobileusage):
-            _LOGGER.info("enumarate mobileusage elements idx:" + str(idxproduct) + ", product: "+ str(product) + " " +  NAME)
+            _LOGGER.debug("enumarate mobileusage elements idx:" + str(idxproduct) + ", product: "+ str(product) + " " +  NAME)
             #shared sensor
             if product.get('sharedusage'):
                 _LOGGER.info("shared mobileusage element " +  NAME)
@@ -78,7 +78,7 @@ async def dry_setup(hass, config_entry, async_add_devices):
             if product.get('unassigned'):
                 _LOGGER.info("unassined mobileusage element " +  NAME)
                 for idxunsubs, subscription in enumerate(product.get('unassigned').get('mobilesubscriptions')):
-                    _LOGGER.info("enumarate unassigned subsc elements idx:" + str(idxunsubs) + ", subscription: "+ str(subscription) + " " +  NAME)
+                    _LOGGER.debug("enumarate unassigned subsc elements idx:" + str(idxunsubs) + ", subscription: "+ str(subscription) + " " +  NAME)
                     #unassigned sensor
                     sensor = ComponentMobileUnassigned(data_mobile, idxproduct, idxunsubs, hass)
                     sensors.append(sensor)
@@ -86,9 +86,9 @@ async def dry_setup(hass, config_entry, async_add_devices):
             if product.get('profiles'):
                 _LOGGER.info("assined mobileusage element " +  NAME)
                 for idxunprofile, profile in enumerate(product.get('profiles')):
-                    _LOGGER.info("enumarate assigned profiles elements idx:" + str(idxunprofile) + ", profile: "+ str(profile) + " " +  NAME)
+                    _LOGGER.debug("enumarate assigned profiles elements idx:" + str(idxunprofile) + ", profile: "+ str(profile) + " " +  NAME)
                     for idxunsubs, subscription in enumerate(product.get('profiles')[idxunprofile].get('mobilesubscriptions')):
-                        _LOGGER.info("enumarate assigned subsc elements idx:" + str(idxunsubs) + ", subscription: "+ str(subscription) + " " +  NAME)
+                        _LOGGER.debug("enumarate assigned subsc elements idx:" + str(idxunsubs) + ", subscription: "+ str(subscription) + " " +  NAME)
                         #assigned sensor
                         sensor = ComponentMobileAssigned(data_mobile, idxproduct, idxunprofile, idxunsubs, hass)
                         sensors.append(sensor)
@@ -144,7 +144,7 @@ class ComponentData:
 
         if self._session:
             await self._hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
-            _LOGGER.info("init login completed")
+            _LOGGER.debug("init login completed")
             if self._internet:
                 self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
                 _LOGGER.debug(f"init telemeter data: {self._telemeter}")
@@ -162,7 +162,7 @@ class ComponentData:
 
         if self._session:
             await self._hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
-            _LOGGER.info("login completed")
+            _LOGGER.debug("login completed")
             if self._internet:
                 self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
                 _LOGGER.debug(f"telemeter data: {self._telemeter}")
@@ -324,48 +324,56 @@ class ComponentMobileShared(Entity):
         self._productid = productid
         self._hass = hass
         self._last_update = None
-        self._total_volume = None
-        self._used_percentage = None
-        self._period_start_date = None
+        self._total_volume_data = None
+        self._total_volume_text = None
+        self._total_volume_voice = None
+        self._remaining_volume_data = None
+        self._remaining_volume_text = None
+        self._remaining_volume_voice = None
+        self._used_percentage_data = None
+        self._used_percentage_text = None
+        self._used_percentage_voice = None
         self._period_end_date = None
-        self._period_used_percentage = None
-        self._period_length = None
-        self._period_left = None
-        self._period_used = None
+        self._outofbundle = None
         tz_info = None
         self._product = None
 
     @property
     def state(self):
         """Return the state of the sensor."""
-        return self._used_percentage
+        return self._used_percentage_data
 
     async def async_update(self):
         await self._data.update()
-        _LOGGER.info(f"mobilemeter ComponentMobileShared productid: {self._productid}")
+        _LOGGER.debug(f"mobilemeter ComponentMobileShared productid: {self._productid}")
         
         mobileusage = self._data._mobilemeter.get('mobileusage')
         productdetails = mobileusage[self._productid]
         
         self._last_update =  productdetails.get('lastupdated')
         self._product = productdetails.get('label')
-        #self._period_start_date = datetime.strptime(self._data._mobilemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
         self._period_end_date = productdetails.get('nextbillingdate')
         # get shared sensor
         sharedusage = productdetails.get('sharedusage')
-        # tz_info = self._period_end_date.tzinfo
-        # self._period_length = (self._period_end_date - self._period_start_date).days
-        # self._period_left = (self._period_end_date - datetime.now(tz_info)).days + 2
-        # _LOGGER.debug(f"telemeter end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}")
-        # self._period_used = self._period_length - self._period_left
-        # self._period_used_percentage = round(100 * (self._period_used / self._period_length),2)
         
         #todo: add checks on empty elements
         if sharedusage:
-            self._total_volume = str(sharedusage.get('included').get('data').get('startunits')) + ' ' + sharedusage.get('included').get('data').get('unittype')
-            self._used_percentage = sharedusage.get('included').get('data').get('usedpercentage')
+            if sharedusage.get('included').get('data'):
+                self._total_volume_data = str(sharedusage.get('included').get('data').get('startunits')) + ' ' + sharedusage.get('included').get('data').get('unittype')
+                self._used_percentage_data = sharedusage.get('included').get('data').get('usedpercentage')
+                self._remaining_volume_data = str(sharedusage.get('included').get('data').get('remainingunits')) + ' ' + sharedusage.get('included').get('data').get('unittype')
                 
+            if sharedusage.get('included').get('text'):
+                self._total_volume_text = str(sharedusage.get('included').get('text').get('startunits')) + ' ' + sharedusage.get('included').get('text').get('unittype')
+                self._used_percentage_text = sharedusage.get('included').get('text').get('remainingunits') + ' ' + sharedusage.get('included').get('text').get('unittype')
+                self._remaining_volume_text = str(sharedusage.get('included').get('text').get('remainingunits')) + ' ' + sharedusage.get('included').get('data').get('unittype')
+                
+            if sharedusage.get('included').get('voice'):
+                self._total_volume_voice = str(sharedusage.get('included').get('voice').get('startunits')) + ' ' + sharedusage.get('included').get('voice').get('unittype')
+                self._used_percentage_voice = sharedusage.get('included').get('voice').get('usedpercentage')
+                self._remaining_volume_voice = str(sharedusage.get('included').get('voice').get('remainingunits')) + ' ' + sharedusage.get('included').get('voice').get('unittype')
             
+            self._outofbundle = str(sharedusage.get('outofbundle').get('usedunits')) + ' ' + sharedusage.get('outofbundle').get('unittype')
         
     async def async_will_remove_from_hass(self):
         """Clean up after entity before removal."""
@@ -397,13 +405,18 @@ class ComponentMobileShared(Entity):
         return {
             ATTR_ATTRIBUTION: NAME,
             "last update": self._last_update,
-            "used_percentage": self._used_percentage,
-            "total_volume": self._total_volume,
-            "period_start": self._period_start_date,
+            "used_percentage_data": self._used_percentage_data,
+            "used_percentage_text": self._used_percentage_text,
+            "used_percentage_voice": self._used_percentage_voice,
+            "total_volume_data": self._total_volume_data,
+            "total_volume_text": self._total_volume_text,
+            "total_volume_voice": self._total_volume_voice,
+            "remaining_volume_data": self._remaining_volume_data,
+            "remaining_volume_text": self._remaining_volume_text,
+            "remaining_volume_voice": self._remaining_volume_voice,
             "period_end": self._period_end_date,
-            "period_days_left": self._period_left,
-            "period_used_percentage": self._period_used_percentage,
             "product": self._product,
+            "outofbundle" : self._outofbundle,
             "mobile_json": self._data._mobilemeter
         }
 
@@ -437,19 +450,16 @@ class ComponentMobileUnassigned(Entity):
         self._subsid = subsid
         self._hass = hass
         self._last_update = None
-        self._total_volume = None
+        self._total_volume_data = None
         self._total_volume_text = None
         self._total_volume_voice = None
-        self._used_percentage = None
+        self._remaining_volume_data = None
+        self._remaining_volume_text = None
+        self._remaining_volume_voice = None
+        self._used_percentage_data = None
         self._used_percentage_text = None
         self._used_percentage_voice = None
-        self._period_start_date = None
         self._period_end_date = None
-        self._period_used_percentage = None
-        self._period_length = None
-        self._period_left = None
-        self._period_used = None
-        tz_info = None
         self._product = None
         self._number = None
         self._active = None
@@ -459,41 +469,37 @@ class ComponentMobileUnassigned(Entity):
     @property
     def state(self):
         """Return the state of the sensor."""
-        return self._used_percentage
+        return self._used_percentage_data
 
     async def async_update(self):
         await self._data.update()
-        _LOGGER.info(f"mobilemeter ComponentMobileShared subsid: {self._subsid}")
+        _LOGGER.debug(f"mobilemeter ComponentMobileShared subsid: {self._subsid}")
         
         mobileusage = self._data._mobilemeter.get('mobileusage')
         productdetails = mobileusage[self._productid]
         
         self._last_update =  productdetails.get('lastupdated')
         self._product = productdetails.get('label')
-        #self._period_start_date = datetime.strptime(self._data._mobilemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
         self._period_end_date = productdetails.get('nextbillingdate')
         # get shared sensor
         unassignesub = productdetails.get('unassigned').get('mobilesubscriptions')[self._subsid]
-        # tz_info = self._period_end_date.tzinfo
-        # self._period_length = (self._period_end_date - self._period_start_date).days
-        # self._period_left = (self._period_end_date - datetime.now(tz_info)).days + 2
-        # _LOGGER.debug(f"telemeter end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}")
-        # self._period_used = self._period_length - self._period_left
-        # self._period_used_percentage = round(100 * (self._period_used / self._period_length),2)
         
         #todo: add checks on empty elements
         if unassignesub:
             if unassignesub.get('included').get('data'):
-                self._total_volume = str(unassignesub.get('included').get('data').get('startunits')) + ' ' + unassignesub.get('included').get('data').get('unittype')
-                self._used_percentage = unassignesub.get('included').get('data').get('usedpercentage')
+                self._total_volume_data = str(unassignesub.get('included').get('data').get('startunits')) + ' ' + unassignesub.get('included').get('data').get('unittype')
+                self._used_percentage_data = unassignesub.get('included').get('data').get('usedpercentage')
+                self._remaining_volume_data = str(unassignesub.get('included').get('data').get('remainingunits')) + ' ' + unassignesub.get('included').get('data').get('unittype')
                 
             if unassignesub.get('included').get('text'):
                 self._total_volume_text = str(unassignesub.get('included').get('text').get('startunits')) + ' ' + unassignesub.get('included').get('text').get('unittype')
                 self._used_percentage_text = unassignesub.get('included').get('text').get('usedpercentage')
+                self._remaining_volume_text = str(unassignesub.get('included').get('text').get('remainingunits')) + ' ' + unassignesub.get('included').get('text').get('unittype')
                 
             if unassignesub.get('included').get('voice'):
                 self._total_volume_voice = str(unassignesub.get('included').get('voice').get('startunits')) + ' ' + unassignesub.get('included').get('voice').get('unittype')
                 self._used_percentage_voice = unassignesub.get('included').get('voice').get('usedpercentage')
+                self._remaining_volume_voice = str(unassignesub.get('included').get('voice').get('remainingunits')) + ' ' + unassignesub.get('included').get('voice').get('unittype')
             
             self._number = unassignesub.get('mobile')
             self._active = unassignesub.get('activationstate')
@@ -532,16 +538,16 @@ class ComponentMobileUnassigned(Entity):
         return {
             ATTR_ATTRIBUTION: NAME,
             "last update": self._last_update,
-            "used_percentage": self._used_percentage,
+            "used_percentage_data": self._used_percentage_data,
             "used_percentage_text": self._used_percentage_text,
             "used_percentage_voice": self._used_percentage_voice,
-            "total_volume": self._total_volume,
+            "total_volume_data": self._total_volume_data,
             "total_volume_text": self._total_volume_text,
             "total_volume_voice": self._total_volume_voice,
-            "period_start": self._period_start_date,
+            "remaining_volume_data": self._remaining_volume_data,
+            "remaining_volume_text": self._remaining_volume_text,
+            "remaining_volume_voice": self._remaining_volume_voice,
             "period_end": self._period_end_date,
-            "period_days_left": self._period_left,
-            "period_used_percentage": self._period_used_percentage,
             "product": self._product,
             "mobile_json": self._data._mobilemeter,
             "number" : self._number,
@@ -581,19 +587,19 @@ class ComponentMobileAssigned(Entity):
         self._subsid = subsid
         self._hass = hass
         self._last_update = None
-        self._total_volume = None
+        self._total_volume_data = None
         self._total_volume_text = None
         self._total_volume_voice = None
-        self._used_percentage = None
+        self._remaining_volume_data = None
+        self._remaining_volume_text = None
+        self._remaining_volume_voice = None
+        self._remaining_volume = None
+        self._remaining_volume_text = None
+        self._remaining_volume_voice = None
+        self._used_percentage_data = None
         self._used_percentage_text = None
         self._used_percentage_voice = None
-        self._period_start_date = None
         self._period_end_date = None
-        self._period_used_percentage = None
-        self._period_length = None
-        self._period_left = None
-        self._period_used = None
-        tz_info = None
         self._product = None
         self._number = None
         self._active = None
@@ -606,27 +612,20 @@ class ComponentMobileAssigned(Entity):
     @property
     def state(self):
         """Return the state of the sensor."""
-        return self._used_percentage
+        return self._used_percentage_data
 
     async def async_update(self):
         await self._data.update()
-        _LOGGER.info(f"mobilemeter ComponentMobileShared subsid: {self._subsid}")
+        _LOGGER.debug(f"mobilemeter ComponentMobileShared subsid: {self._subsid}")
         
         mobileusage = self._data._mobilemeter.get('mobileusage')
         productdetails = mobileusage[self._productid]
         
         self._last_update =  productdetails.get('lastupdated')
         self._product = productdetails.get('label')
-        #self._period_start_date = datetime.strptime(self._data._mobilemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
         self._period_end_date = productdetails.get('nextbillingdate')
         # get shared sensor
         profile = productdetails.get('profiles')[self._profileid]
-        # tz_info = self._period_end_date.tzinfo
-        # self._period_length = (self._period_end_date - self._period_start_date).days
-        # self._period_left = (self._period_end_date - datetime.now(tz_info)).days + 2
-        # _LOGGER.debug(f"telemeter end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}")
-        # self._period_used = self._period_length - self._period_left
-        # self._period_used_percentage = round(100 * (self._period_used / self._period_length),2)
         
         #todo: add checks on empty elements
         if profile:
@@ -634,16 +633,19 @@ class ComponentMobileAssigned(Entity):
             assignesub = profile.get('mobilesubscriptions')[self._subsid]
             if assignesub:
                 if assignesub.get('included').get('data'):
-                    self._total_volume = str(assignesub.get('included').get('data').get('startunits')) + ' ' + assignesub.get('included').get('data').get('unittype')
-                    self._used_percentage = assignesub.get('included').get('data').get('usedpercentage')
+                    self._total_volume_data = str(assignesub.get('included').get('data').get('startunits')) + ' ' + assignesub.get('included').get('data').get('unittype')
+                    self._used_percentage_data = assignesub.get('included').get('data').get('usedpercentage')
+                    self._remaining_volume_data = str(assignesub.get('included').get('data').get('remainingunits')) + ' ' + assignesub.get('included').get('data').get('unittype')
                 
                 if assignesub.get('included').get('text'):
                     self._total_volume_text = str(assignesub.get('included').get('text').get('startunits')) + ' ' + assignesub.get('included').get('text').get('unittype')
                     self._used_percentage_text = assignesub.get('included').get('text').get('usedpercentage')
+                    self._remaining_volume_text = str(assignesub.get('included').get('text').get('remainingunits')) + ' ' + assignesub.get('included').get('text').get('unittype')
                 
                 if assignesub.get('included').get('voice'):
                     self._total_volume_voice = str(assignesub.get('included').get('voice').get('startunits')) + ' ' + assignesub.get('included').get('voice').get('unittype')                
                     self._used_percentage_voice = assignesub.get('included').get('voice').get('usedpercentage')
+                    self._remaining_volume_voice = str(assignesub.get('included').get('voice').get('remainingunits')) + ' ' + assignesub.get('included').get('voice').get('unittype')
                 
                 self._number = assignesub.get('mobile')
                 self._active = assignesub.get('activationstate')
@@ -686,16 +688,16 @@ class ComponentMobileAssigned(Entity):
         return {
             ATTR_ATTRIBUTION: NAME,
             "last update": self._last_update,
-            "used_percentage": self._used_percentage,
+            "used_percentage_data": self._used_percentage_data,
             "used_percentage_text": self._used_percentage_text,
             "used_percentage_voice": self._used_percentage_voice,
-            "total_volume": self._total_volume,
+            "total_volume_data": self._total_volume_data,
             "total_volume_text": self._total_volume_text,
             "total_volume_voice": self._total_volume_voice,
-            "period_start": self._period_start_date,
+            "remaining_volume_data": self._remaining_volume_data,
+            "remaining_volume_text": self._remaining_volume_text,
+            "remaining_volume_voice": self._remaining_volume_voice,
             "period_end": self._period_end_date,
-            "period_days_left": self._period_left,
-            "period_used_percentage": self._period_used_percentage,
             "product": self._product,
             "mobile_json": self._data._mobilemeter,
             "number" : self._number,
