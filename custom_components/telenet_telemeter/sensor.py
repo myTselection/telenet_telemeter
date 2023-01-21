@@ -64,9 +64,35 @@ async def dry_setup(hass, config_entry, async_add_devices):
         )
         await data_mobile._init()
         assert data_mobile._mobilemeter is not None
+        # createa mobile sensor for each mobile subscription
         # for mobilenr in data_mobile._mobilemeter
-        sensor = ComponentMobile(data_mobile, hass)
-        sensors.append(sensor)
+        mobileusage = data_mobile._mobilemeter.get('mobileusage')
+        for idxproduct, product in enumerate(mobileusage):
+            _LOGGER.info("enumarate mobileusage elements idx:" + str(idxproduct) + ", product: "+ str(product) + " " +  NAME)
+            #shared sensor
+            if product.get('sharedusage'):
+                _LOGGER.info("shared mobileusage element " +  NAME)
+                sensor = ComponentMobileShared(data_mobile, idxproduct, hass)
+                sensors.append(sensor)
+            #unassigned sensor
+            if product.get('unassigned'):
+                _LOGGER.info("unassined mobileusage element " +  NAME)
+                for idxunsubs, subscription in enumerate(product.get('unassigned').get('mobilesubscriptions')):
+                    _LOGGER.info("enumarate unassigned subsc elements idx:" + str(idxunsubs) + ", subscription: "+ str(subscription) + " " +  NAME)
+                    #unassigned sensor
+                    sensor = ComponentMobileUnassigned(data_mobile, idxproduct, idxunsubs, hass)
+                    sensors.append(sensor)
+            #assigned sensor
+            if product.get('profiles'):
+                _LOGGER.info("assined mobileusage element " +  NAME)
+                for idxunprofile, profile in enumerate(product.get('profiles')):
+                    _LOGGER.info("enumarate assigned profiles elements idx:" + str(idxunprofile) + ", profile: "+ str(profile) + " " +  NAME)
+                    for idxunsubs, subscription in enumerate(product.get('profiles')[idxunprofile].get('mobilesubscriptions')):
+                        _LOGGER.info("enumarate assigned subsc elements idx:" + str(idxunsubs) + ", subscription: "+ str(subscription) + " " +  NAME)
+                        #assigned sensor
+                        sensor = ComponentMobileAssigned(data_mobile, idxproduct, idxunprofile, idxunsubs, hass)
+                        sensors.append(sensor)
+                
     async_add_devices(sensors)
 
 
@@ -285,7 +311,435 @@ class ComponentInternet(Entity):
     def friendly_name(self) -> str:
         return self.unique_id
         
+        
+        
+        
 
+class ComponentMobileShared(Entity):
+    def __init__(self, data, productid, hass):
+        self._data = data
+        self._productid = productid
+        self._hass = hass
+        self._last_update = None
+        self._total_volume = None
+        self._used_percentage = None
+        self._period_start_date = None
+        self._period_end_date = None
+        self._period_used_percentage = None
+        self._period_length = None
+        self._period_left = None
+        self._period_used = None
+        tz_info = None
+        self._product = None
+
+    @property
+    def state(self):
+        """Return the state of the sensor."""
+        return self._used_percentage
+
+    async def async_update(self):
+        await self._data.update()
+        _LOGGER.info(f"mobilemeter ComponentMobileShared productid: {self._productid}")
+        
+        mobileusage = data_mobile._mobilemeter.get('mobileusage')
+        productdetails = mobileusage[self._productid]
+        
+        self._last_update =  productdetails.get('lastupdated')
+        self._product = productdetails.get('label')
+        #self._period_start_date = datetime.strptime(self._data._mobilemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
+        self._period_end_date = productdetails.get('nextbillingdate')
+        # get shared sensor
+        sharedusage = productdetails.get('sharedusage')
+        # tz_info = self._period_end_date.tzinfo
+        # self._period_length = (self._period_end_date - self._period_start_date).days
+        # self._period_left = (self._period_end_date - datetime.now(tz_info)).days + 2
+        # _LOGGER.debug(f"telemeter end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}")
+        # self._period_used = self._period_length - self._period_left
+        # self._period_used_percentage = round(100 * (self._period_used / self._period_length),2)
+        
+        #todo: add checks on empty elements
+        if sharedusage:
+            self._total_volume = str(sharedusage.get('included').get('data').get('startunits')) + ' ' + sharedusage.get('included').get('data').get('unittype')
+            
+            # self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
+            # self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')
+            
+            # if self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None:
+                # #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
+                # self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+                # self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
+                # self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
+                
+            self._used_percentage = sharedusage.get('included').get('data').get('usedpercentage')
+                
+            # else:
+                # #when peak indication is available, only use peak + wifree in total used counter, as offpeak is not attributed
+                # self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+                # self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
+                # self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
+                
+                # self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),2)
+                # self._last_update =  self._data._mobilemeter.get('product')[0].get('lastupdated')
+                
+            
+        
+    async def async_will_remove_from_hass(self):
+        """Clean up after entity before removal."""
+        _LOGGER.info("async_will_remove_from_hass " + NAME)
+        self._data.clear_session()
+
+
+    @property
+    def icon(self) -> str:
+        """Shows the correct icon for container."""
+        return "mdi:check-network-outline"
+        #alternative: 
+        #return "mdi:wifi_tethering_error"
+        
+    @property
+    def unique_id(self) -> str:
+        """Return the name of the sensor."""
+        return (
+            NAME + " mobile shared"
+        )
+
+    @property
+    def name(self) -> str:
+        return self.unique_id
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return the state attributes."""
+        return {
+            ATTR_ATTRIBUTION: NAME,
+            "last update": self._last_update,
+            "used_percentage": self._used_percentage,
+            "total_volume": self._total_volume,
+            "period_start": self._period_start_date,
+            "period_end": self._period_end_date,
+            "period_days_left": self._period_left,
+            "period_used_percentage": self._period_used_percentage,
+            "product": self._product,
+            "mobile_json": self._data._mobilemeter
+        }
+
+    @property
+    def device_info(self) -> dict:
+        """I can't remember why this was needed :D"""
+        return {
+            "identifiers": {(DOMAIN, self.unique_id)},
+            "name": self.name,
+            "manufacturer": DOMAIN,
+        }
+
+    @property
+    def unit(self) -> int:
+        """Unit"""
+        return int
+
+    @property
+    def unit_of_measurement(self) -> str:
+        """Return the unit of measurement this sensor expresses itself in."""
+        return "%"
+
+    @property
+    def friendly_name(self) -> str:
+        return self.unique_id
+        
+class ComponentMobileUnassigned(Entity):
+    def __init__(self, data, productid, subsid, hass):
+        self._data = data
+        self._productid = productid
+        self._subsid = subsid
+        self._hass = hass
+        self._last_update = None
+        self._total_volume = None
+        self._total_volume_text = None
+        self._total_volume_voice = None
+        self._used_percentage = None
+        self._used_percentage_text = None
+        self._used_percentage_voice = None
+        self._period_start_date = None
+        self._period_end_date = None
+        self._period_used_percentage = None
+        self._period_length = None
+        self._period_left = None
+        self._period_used = None
+        tz_info = None
+        self._product = None
+        self._number = None
+        self._active = None
+        self._outofbundle = None
+        self._mobileinternetonly = None  
+
+    @property
+    def state(self):
+        """Return the state of the sensor."""
+        return self._used_percentage
+
+    async def async_update(self):
+        await self._data.update()
+        _LOGGER.info(f"mobilemeter ComponentMobileShared subsid: {self._subsid}")
+        
+        mobileusage = data_mobile._mobilemeter.get('mobileusage')
+        productdetails = mobileusage[self._productid]
+        
+        self._last_update =  productdetails.get('lastupdated')
+        self._product = productdetails.get('label')
+        #self._period_start_date = datetime.strptime(self._data._mobilemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
+        self._period_end_date = productdetails.get('nextbillingdate')
+        # get shared sensor
+        unassignesub = productdetails.get('unassigned').get('mobilesubscriptions')[self._subsid]
+        # tz_info = self._period_end_date.tzinfo
+        # self._period_length = (self._period_end_date - self._period_start_date).days
+        # self._period_left = (self._period_end_date - datetime.now(tz_info)).days + 2
+        # _LOGGER.debug(f"telemeter end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}")
+        # self._period_used = self._period_length - self._period_left
+        # self._period_used_percentage = round(100 * (self._period_used / self._period_length),2)
+        
+        #todo: add checks on empty elements
+        if unassignesub:
+            self._total_volume = str(unassignesub.get('included').get('data').get('startunits')) + ' ' + unassignesub.get('included').get('data').get('unittype')
+            self._total_volume_text = str(unassignesub.get('included').get('text').get('startunits')) + ' ' + unassignesub.get('included').get('text').get('unittype')
+            self._total_volume_voice = str(unassignesub.get('included').get('voice').get('startunits')) + ' ' + unassignesub.get('included').get('voice').get('unittype')
+            
+            self._used_percentage = unassignesub.get('included').get('data').get('usedpercentage')
+            self._used_percentage_text = unassignesub.get('included').get('text').get('usedpercentage')
+            self._used_percentage_voice = unassignesub.get('included').get('voice').get('usedpercentage')
+            
+            self._number = unassignesub.get('mobile')
+            self._active = unassignesub.get('activationstate')
+            self._outofbundle = str(unassignesub.get('outofbundle').get('usedunits')) + ' ' + unassignesub.get('outofbundle').get('unittype')
+            self._mobileinternetonly = unassignesub.get('mobileinternetonly')               
+                
+            
+        
+    async def async_will_remove_from_hass(self):
+        """Clean up after entity before removal."""
+        _LOGGER.info("async_will_remove_from_hass " + NAME)
+        self._data.clear_session()
+
+
+    @property
+    def icon(self) -> str:
+        """Shows the correct icon for container."""
+        return "mdi:check-network-outline"
+        #alternative: 
+        #return "mdi:wifi_tethering_error"
+        
+    @property
+    def unique_id(self) -> str:
+        """Return the name of the sensor."""
+        return (
+            NAME + " mobile " + self._number
+        )
+
+    @property
+    def name(self) -> str:
+        return self.unique_id
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return the state attributes."""
+        return {
+            ATTR_ATTRIBUTION: NAME,
+            "last update": self._last_update,
+            "used_percentage": self._used_percentage,
+            "used_percentage_text": self._used_percentage,
+            "used_percentage_voice": self._used_percentage,
+            "total_volume": self._total_volume,
+            "_total_volume_text": self._total_volume,
+            "_total_volume_voice": self._total_volume,
+            "period_start": self._period_start_date,
+            "period_end": self._period_end_date,
+            "period_days_left": self._period_left,
+            "period_used_percentage": self._period_used_percentage,
+            "product": self._product,
+            "mobile_json": self._data._mobilemeter,
+            "number" : self._number,
+            "active" : self._active,
+            "outofbundle" : self._outofbundle,
+            "mobileinternetonly" :  self._mobileinternetonly
+        }
+
+    @property
+    def device_info(self) -> dict:
+        """I can't remember why this was needed :D"""
+        return {
+            "identifiers": {(DOMAIN, self.unique_id)},
+            "name": self.name,
+            "manufacturer": DOMAIN,
+        }
+
+    @property
+    def unit(self) -> int:
+        """Unit"""
+        return int
+
+    @property
+    def unit_of_measurement(self) -> str:
+        """Return the unit of measurement this sensor expresses itself in."""
+        return "%"
+
+    @property
+    def friendly_name(self) -> str:
+        return self.unique_id
+        
+class ComponentMobileAssigned(Entity):
+    def __init__(self, data, productid, profileid, subsid, hass):
+        self._data = data
+        self._productid = productid
+        self._profileid = profileid
+        self._subsid = subsid
+        self._hass = hass
+        self._last_update = None
+        self._total_volume = None
+        self._total_volume_text = None
+        self._total_volume_voice = None
+        self._used_percentage = None
+        self._used_percentage_text = None
+        self._used_percentage_voice = None
+        self._period_start_date = None
+        self._period_end_date = None
+        self._period_used_percentage = None
+        self._period_length = None
+        self._period_left = None
+        self._period_used = None
+        tz_info = None
+        self._product = None
+        self._number = None
+        self._active = None
+        self._outofbundle = None
+        self._mobileinternetonly = None  
+        self._firstname = None
+        self._lastname = None
+        self._role = None
+
+    @property
+    def state(self):
+        """Return the state of the sensor."""
+        return self._used_percentage
+
+    async def async_update(self):
+        await self._data.update()
+        _LOGGER.info(f"mobilemeter ComponentMobileShared subsid: {self._subsid}")
+        
+        mobileusage = data_mobile._mobilemeter.get('mobileusage')
+        productdetails = mobileusage[self._productid]
+        
+        self._last_update =  productdetails.get('lastupdated')
+        self._product = productdetails.get('label')
+        #self._period_start_date = datetime.strptime(self._data._mobilemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
+        self._period_end_date = productdetails.get('nextbillingdate')
+        # get shared sensor
+        profile = productdetails.get('profiles')[self._profileid]
+        # tz_info = self._period_end_date.tzinfo
+        # self._period_length = (self._period_end_date - self._period_start_date).days
+        # self._period_left = (self._period_end_date - datetime.now(tz_info)).days + 2
+        # _LOGGER.debug(f"telemeter end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}")
+        # self._period_used = self._period_length - self._period_left
+        # self._period_used_percentage = round(100 * (self._period_used / self._period_length),2)
+        
+        #todo: add checks on empty elements
+        if profile:
+            
+            assignesub = profile.get('mobilesubscriptions')[self._subsid]
+            if assignesub:
+                self._total_volume = str(assignesub.get('included').get('data').get('startunits')) + ' ' + assignesub.get('included').get('data').get('unittype')
+                self._total_volume_text = str(assignesub.get('included').get('text').get('startunits')) + ' ' + assignesub.get('included').get('text').get('unittype')
+                self._total_volume_voice = str(assignesub.get('included').get('voice').get('startunits')) + ' ' + assignesub.get('included').get('voice').get('unittype')
+                
+                self._used_percentage = assignesub.get('included').get('data').get('usedpercentage')
+                self._used_percentage_text = assignesub.get('included').get('text').get('usedpercentage')
+                self._used_percentage_voice = assignesub.get('included').get('voice').get('usedpercentage')
+                
+                self._number = assignesub.get('mobile')
+                self._active = assignesub.get('activationstate')
+                self._outofbundle = str(assignesub.get('outofbundle').get('usedunits')) + ' ' + assignesub.get('outofbundle').get('unittype')
+                self._mobileinternetonly = assignesub.get('mobileinternetonly')    
+
+                self._firstname = profile.get('firstname')
+                self._lastname = profile.get('lastname')
+                self._role = profile.get('role')                
+                
+            
+        
+    async def async_will_remove_from_hass(self):
+        """Clean up after entity before removal."""
+        _LOGGER.info("async_will_remove_from_hass " + NAME)
+        self._data.clear_session()
+
+
+    @property
+    def icon(self) -> str:
+        """Shows the correct icon for container."""
+        return "mdi:check-network-outline"
+        #alternative: 
+        #return "mdi:wifi_tethering_error"
+        
+    @property
+    def unique_id(self) -> str:
+        """Return the name of the sensor."""
+        return (
+            NAME + " mobile " + self._number
+        )
+
+    @property
+    def name(self) -> str:
+        return self.unique_id
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return the state attributes."""
+        return {
+            ATTR_ATTRIBUTION: NAME,
+            "last update": self._last_update,
+            "used_percentage": self._used_percentage,
+            "used_percentage_text": self._used_percentage,
+            "used_percentage_voice": self._used_percentage,
+            "total_volume": self._total_volume,
+            "_total_volume_text": self._total_volume,
+            "_total_volume_voice": self._total_volume,
+            "period_start": self._period_start_date,
+            "period_end": self._period_end_date,
+            "period_days_left": self._period_left,
+            "period_used_percentage": self._period_used_percentage,
+            "product": self._product,
+            "mobile_json": self._data._mobilemeter,
+            "number" : self._number,
+            "active" : self._active,
+            "outofbundle" : self._outofbundle,
+            "mobileinternetonly" :  self._mobileinternetonly,
+            "firstname": self._firstname,
+            "lastnam": self._lastname,
+            "role": self._role
+        }
+
+    @property
+    def device_info(self) -> dict:
+        """I can't remember why this was needed :D"""
+        return {
+            "identifiers": {(DOMAIN, self.unique_id)},
+            "name": self.name,
+            "manufacturer": DOMAIN,
+        }
+
+    @property
+    def unit(self) -> int:
+        """Unit"""
+        return int
+
+    @property
+    def unit_of_measurement(self) -> str:
+        """Return the unit of measurement this sensor expresses itself in."""
+        return "%"
+
+    @property
+    def friendly_name(self) -> str:
+        return self.unique_id
+  
+
+#not used
 class ComponentMobile(Entity):
     def __init__(self, data, hass):
         self._data = data
