@@ -49,7 +49,7 @@ async def dry_setup(hass, config_entry, async_add_devices):
             async_get_clientsession(hass),
             hass
         )
-        await data_internet._init()
+        await data_internet._forced_update()
         assert data_internet._telemeter is not None
         sensor = ComponentInternet(data_internet, hass)
         sensors.append(sensor)
@@ -62,7 +62,7 @@ async def dry_setup(hass, config_entry, async_add_devices):
             async_get_clientsession(hass),
             hass
         )
-        await data_mobile._init()
+        await data_mobile._forced_update()
         assert data_mobile._mobilemeter is not None
         # createa mobile sensor for each mobile subscription
         # for mobilenr in data_mobile._mobilemeter
@@ -128,16 +128,15 @@ class ComponentData:
         self._internet = internet
         self._mobile = mobile
         self._client = client
-        self._data = {}
-        self._last_update = None
-        self._friendly_name = None
         self._session = TelenetSession()
         self._telemeter = None
         self._mobilemeter = None
+        self._producturl = None
+        self._product_details = None
         self._hass = hass
         
     # same as update, but without throttle to make sure init is always executed
-    async def _init(self):
+    async def _forced_update(self):
         _LOGGER.info("Fetching intit stuff for " + NAME)
         if not(self._session):
             self._session = TelenetSession()
@@ -148,6 +147,9 @@ class ComponentData:
             if self._internet:
                 self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
                 _LOGGER.debug(f"init telemeter data: {self._telemeter}")
+                self._producturl = self._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('specurl') 
+                self._product_details = await self._hass.async_add_executor_job(lambda: self._session.telemeter_product_details(self._producturl))
+                _LOGGER.debug(f"init telemeter productdetails: {self._product_details}")
             if self._mobile:
                 self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.mobile())
                 # mock data
@@ -156,21 +158,7 @@ class ComponentData:
                 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def _update(self):
-        _LOGGER.info("Fetching stuff for " + NAME)
-        if not(self._session):
-            self._session = TelenetSession()
-
-        if self._session:
-            await self._hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
-            _LOGGER.debug("login completed")
-            if self._internet:
-                self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
-                _LOGGER.debug(f"telemeter data: {self._telemeter}")
-            if self._mobile:
-                self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.mobile())
-                # mock data
-                # self._mobilemeter = {'mobileusage': [{'label': 'O1', 'specurl': 'https://api.prd.telenet.be/omapi/public/product/42797', 'identifier': 'O1_46172164', 'nextbillingdate': '2023-01-26T00:00:00.0+01:00', 'lastupdated': '2023-01-21T10:50:01.7+01:00', 'address': {'street': '', 'postalcode': '', 'municipality': '', 'country': '', 'housenr': '', 'addressid': ''}, 'unassigned': {'mobilesubscriptions': []}, 'profiles': [{'pid': '16517642', 'role': 'manager', 'firstname': '', 'lastname': '', 'nickname': '', 'paused': False, 'mobilesubscriptions': [{'mobile': '0477777777', 'sim': '', 'pin': '', 'puk': '', 'activationstate': 'active', 'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 272.9, 'remaining': '272,90', 'usedunits': 27.1, 'used': '27,10', 'usedpercentage': 9, 'unittype': 'GB', 'unlimited': True}, 'text': {'startunits': 30000.0, 'remainingunits': 29990.0, 'usedunits': 10.0, 'usedpercentage': 0, 'unittype': 'number', 'unlimited': True, 'scaledusedpercentage': 1}, 'voice': {'startunits': 180000, 'remainingunits': 174503, 'usedunits': 5497, 'usedpercentage': 3, 'unittype': 'seconds', 'unlimited': True, 'scaledusedpercentage': 36}}, 'options': [], 'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}, 'paused': False, 'mobileinternetonly': False}, {'mobile': '0488888888', 'sim': '', 'pin': '', 'puk': '', 'activationstate': 'active', 'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 290.21, 'remaining': '290,21', 'usedunits': 9.79, 'used': '9,79', 'usedpercentage': 3, 'unittype': 'GB', 'unlimited': True}}, 'options': [], 'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}, 'paused': False, 'mobileinternetonly': True}], 'aggregatedusage': {'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 263.11, 'remaining': '263,11', 'usedunits': 36.89, 'used': '36,89', 'usedpercentage': 12, 'unittype': 'GB', 'unlimited': True, 'scaledusedpercentage': 12}}, 'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}}}], 'sharedusage': {'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}, 'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 263.1, 'remaining': '263,1', 'usedunits': 36.9, 'used': '36,9', 'usedpercentage': 12, 'unittype': 'GB', 'unlimited': True}}, 'options': []}, 'freeride': {'active': False}, 'totalusage': {'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 263.1, 'remaining': '263,1', 'usedunits': 36.9, 'used': '36,9', 'usedpercentage': 12, 'unittype': 'GB'}}}}]}
-                _LOGGER.debug(f"mobilemeter data: {self._mobilemeter}")
+        await self._forced_update()
 
     async def update(self):
         await self._update()
@@ -200,6 +188,8 @@ class ComponentInternet(Entity):
         self._extendedvolume_usage = None
         self._period_used_percentage = None
         self._product = None
+        self._download_speed = None
+        self._upload_speed = None
         self._peak_usage = None
         self._offpeak_usage = None
 
@@ -221,10 +211,15 @@ class ComponentInternet(Entity):
         self._period_used = self._period_length - self._period_left
         self._period_used_percentage = round(100 * (self._period_used / self._period_length),2)
         
-        self._total_volume = (self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume') + self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')) / 1024 / 1024
-        
-        self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
+        #original way to get included volume, but now getting out of product details to get FUP limits
+        # self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
+        self._included_volume = int((self._data._product_details.get('product').get('characteristics').get('service_category_limit').get('value'))) * 1024 * 1024
         self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')
+        
+        self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
+        
+        self._download_speed = str(self._data._product_details.get('product').get('services')[0].get('specifications')[1].get('value')) + ' ' + self._data._product_details.get('product').get('services')[0].get('specifications')[1].get('unit')
+        self._upload_speed = str(self._data._product_details.get('product').get('services')[0].get('specifications')[5].get('value')) + ' ' + self._data._product_details.get('product').get('services')[0].get('specifications')[5].get('unit')
         
         if self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None:
             #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
@@ -288,6 +283,8 @@ class ComponentInternet(Entity):
             "period_days_left": self._period_left,
             "period_used_percentage": self._period_used_percentage,
             "product": self._product,
+            "download_speed": self._download_speed,
+            "upload_speed": self._upload_speed,
             "telemeter_json": self._data._telemeter
         }
 

@@ -103,6 +103,20 @@ class TelenetSession(object):
         assert response.status_code == 200
         # return next(Telemeter.from_json(response.json()))
         return response.json()
+
+    def telemeter_product_details(self, url):
+        response = self.s.get(
+            url,
+            headers={
+                "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
+            },
+        )
+        assert response.status_code == 200
+        # _LOGGER.info("telemeter_product_details result " + response.text)
+        # json_string = response.text.replace("'",'"').replace("True","true").replace("False","false")
+        # _LOGGER.info("telemeter_product_details json_string " + json_string)
+        # return json.loads(json_string)
+        return response.json()
         
     def mobile(self):
         response = self.s.get(
