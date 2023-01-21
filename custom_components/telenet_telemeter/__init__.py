@@ -6,7 +6,7 @@ from homeassistant.core import Config, HomeAssistant
 
 DOMAIN = "telenet_telemeter"
 NAME = "Telenet Telemeter"
-VERSION = "0.2.0"
+VERSION = "0.3.1"
 ISSUEURL = "https://github.com/myTselection/telenet_telemeter/issues"
 
 STARTUP = """
