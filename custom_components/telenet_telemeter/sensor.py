@@ -26,8 +26,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     }
 )
 
-#TODO check if needed
-MIN_TIME_BETWEEN_UPDATES = timedelta(hours=2)
+MIN_TIME_BETWEEN_UPDATES = timedelta(hours=1)
 
 
 async def dry_setup(hass, config_entry, async_add_devices):
@@ -221,8 +220,13 @@ class SensorInternet(Entity):
         
         self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
         
-        self._download_speed = f"{self._data._product_details.get('product').get('services')[0].get('specifications')[5].get('value')} {self._data._product_details.get('product').get('services')[0].get('specifications')[5].get('unit')}"
-        self._upload_speed = f"{self._data._product_details.get('product').get('services')[0].get('specifications')[1].get('value')} {self._data._product_details.get('product').get('services')[0].get('specifications')[1].get('unit')}"
+        _LOGGER.debug(f"specifications: {self._data._product_details.get('product').get('services')[0].get('specifications')}")
+        for productdetails in self._data._product_details.get('product').get('services')[0].get('specifications'):
+            _LOGGER.debug(f"productdetails: {productdetails}")
+            if productdetails.get('labelkey') == "spec.fixedinternet.speed.download":
+                self._download_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
+            if productdetails.get('labelkey') == "spec.fixedinternet.speed.upload":
+                self._upload_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
         
         if self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None:
             #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
