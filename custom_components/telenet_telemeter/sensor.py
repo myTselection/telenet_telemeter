@@ -221,8 +221,8 @@ class ComponentInternet(Entity):
         
         self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
         
-        self._download_speed = f"{self._data._product_details.get('product').get('services')[0].get('specifications')[1].get('value')} {self._data._product_details.get('product').get('services')[0].get('specifications')[1].get('unit')}"
-        self._upload_speed = f"{self._data._product_details.get('product').get('services')[0].get('specifications')[5].get('value')} {self._data._product_details.get('product').get('services')[0].get('specifications')[5].get('unit')}"
+        self._download_speed = f"{self._data._product_details.get('product').get('services')[0].get('specifications')[5].get('value')} {self._data._product_details.get('product').get('services')[0].get('specifications')[5].get('unit')}"
+        self._upload_speed = f"{self._data._product_details.get('product').get('services')[0].get('specifications')[1].get('value')} {self._data._product_details.get('product').get('services')[0].get('specifications')[1].get('unit')}"
         
         if self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None:
             #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
