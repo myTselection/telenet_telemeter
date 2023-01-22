@@ -51,7 +51,7 @@ async def dry_setup(hass, config_entry, async_add_devices):
         )
         await data_internet._forced_update()
         assert data_internet._telemeter is not None
-        sensor = ComponentInternet(data_internet, hass)
+        sensor = SensorInternet(data_internet, hass)
         sensors.append(sensor)
     if mobile:
         data_mobile = ComponentData(
@@ -80,7 +80,7 @@ async def dry_setup(hass, config_entry, async_add_devices):
                 for idxunsubs, subscription in enumerate(product.get('unassigned').get('mobilesubscriptions')):
                     _LOGGER.debug("enumarate unassigned subsc elements idx:" + str(idxunsubs) + ", subscription: "+ str(subscription) + " " +  NAME)
                     #unassigned sensor
-                    sensor = ComponentMobileUnassigned(data_mobile, idxproduct, idxunsubs, hass)
+                    sensor = SensorMobileUnassigned(data_mobile, idxproduct, idxunsubs, hass)
                     sensors.append(sensor)
             #assigned sensor
             if product.get('profiles'):
@@ -90,7 +90,7 @@ async def dry_setup(hass, config_entry, async_add_devices):
                     for idxunsubs, subscription in enumerate(product.get('profiles')[idxunprofile].get('mobilesubscriptions')):
                         _LOGGER.debug("enumarate assigned subsc elements idx:" + str(idxunsubs) + ", subscription: "+ str(subscription) + " " +  NAME)
                         #assigned sensor
-                        sensor = ComponentMobileAssigned(data_mobile, idxproduct, idxunprofile, idxunsubs, hass)
+                        sensor = SensorMobileAssigned(data_mobile, idxproduct, idxunprofile, idxunsubs, hass)
                         sensors.append(sensor)
     async_add_devices(sensors)
 
@@ -171,7 +171,7 @@ class ComponentData:
 
 
 
-class ComponentInternet(Entity):
+class SensorInternet(Entity):
     def __init__(self, data, hass):
         self._data = data
         self._hass = hass
@@ -445,7 +445,7 @@ class ComponentMobileShared(Entity):
     def friendly_name(self) -> str:
         return self.unique_id
         
-class ComponentMobileUnassigned(Entity):
+class SensorMobileUnassigned(Entity):
     def __init__(self, data, productid, subsid, hass):
         self._data = data
         self._productid = productid
@@ -583,7 +583,7 @@ class ComponentMobileUnassigned(Entity):
     def friendly_name(self) -> str:
         return self.unique_id
         
-class ComponentMobileAssigned(Entity):
+class SensorMobileAssigned(Entity):
     def __init__(self, data, productid, profileid, subsid, hass):
         self._data = data
         self._productid = productid
