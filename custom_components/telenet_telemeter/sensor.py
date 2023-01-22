@@ -146,9 +146,12 @@ class ComponentData:
             _LOGGER.debug("init login completed")
             if self._internet:
                 self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
+                assert self._telemeter is not None
                 _LOGGER.debug(f"init telemeter data: {self._telemeter}")
                 self._producturl = self._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('specurl') 
+                assert self._producturl is not None
                 self._product_details = await self._hass.async_add_executor_job(lambda: self._session.telemeter_product_details(self._producturl))
+                assert self._product_details is not None
                 _LOGGER.debug(f"init telemeter productdetails: {self._product_details}")
             if self._mobile:
                 self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.mobile())
@@ -218,8 +221,8 @@ class ComponentInternet(Entity):
         
         self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
         
-        self._download_speed = str(self._data._product_details.get('product').get('services')[0].get('specifications')[1].get('value')) + ' ' + self._data._product_details.get('product').get('services')[0].get('specifications')[1].get('unit')
-        self._upload_speed = str(self._data._product_details.get('product').get('services')[0].get('specifications')[5].get('value')) + ' ' + self._data._product_details.get('product').get('services')[0].get('specifications')[5].get('unit')
+        self._download_speed = f"{self._data._product_details.get('product').get('services')[0].get('specifications')[1].get('value')} {self._data._product_details.get('product').get('services')[0].get('specifications')[1].get('unit')}"
+        self._upload_speed = f"{self._data._product_details.get('product').get('services')[0].get('specifications')[5].get('value')} {self._data._product_details.get('product').get('services')[0].get('specifications')[5].get('unit')}"
         
         if self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None:
             #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
@@ -355,22 +358,24 @@ class ComponentMobileShared(Entity):
         
         #todo: add checks on empty elements
         if sharedusage:
-            if sharedusage.get('included').get('data'):
-                self._total_volume_data = str(sharedusage.get('included').get('data').get('startunits')) + ' ' + sharedusage.get('included').get('data').get('unittype')
-                self._used_percentage_data = sharedusage.get('included').get('data').get('usedpercentage')
-                self._remaining_volume_data = str(sharedusage.get('included').get('data').get('remainingunits')) + ' ' + sharedusage.get('included').get('data').get('unittype')
+            if sharedusage.get('included'):
+                if sharedusage.get('included').get('data'):
+                    self._total_volume_data = f"{sharedusage.get('included').get('data').get('startunits')} {sharedusage.get('included').get('data').get('unittype')}"
+                    self._used_percentage_data = sharedusage.get('included').get('data').get('usedpercentage')
+                    self._remaining_volume_data = f"{sharedusage.get('included').get('data').get('remainingunits')} {sharedusage.get('included').get('data').get('unittype')}"
+                    
+                if sharedusage.get('included').get('text'):
+                    self._total_volume_text = f"{sharedusage.get('included').get('text').get('startunits')} {sharedusage.get('included').get('text').get('unittype')}"
+                    self._used_percentage_text = sharedusage.get('included').get('text').get('remainingunits') + ' ' + sharedusage.get('included').get('text').get('unittype')
+                    self._remaining_volume_text = f"{sharedusage.get('included').get('text').get('remainingunits')} {sharedusage.get('included').get('data').get('unittype')}"
+                    
+                if sharedusage.get('included').get('voice'):
+                    self._total_volume_voice = f"{sharedusage.get('included').get('voice').get('startunits')} {sharedusage.get('included').get('voice').get('unittype')}"
+                    self._used_percentage_voice = sharedusage.get('included').get('voice').get('usedpercentage')
+                    self._remaining_volume_voice = f"{sharedusage.get('included').get('voice').get('remainingunits')} {sharedusage.get('included').get('voice').get('unittype')}"
                 
-            if sharedusage.get('included').get('text'):
-                self._total_volume_text = str(sharedusage.get('included').get('text').get('startunits')) + ' ' + sharedusage.get('included').get('text').get('unittype')
-                self._used_percentage_text = sharedusage.get('included').get('text').get('remainingunits') + ' ' + sharedusage.get('included').get('text').get('unittype')
-                self._remaining_volume_text = str(sharedusage.get('included').get('text').get('remainingunits')) + ' ' + sharedusage.get('included').get('data').get('unittype')
-                
-            if sharedusage.get('included').get('voice'):
-                self._total_volume_voice = str(sharedusage.get('included').get('voice').get('startunits')) + ' ' + sharedusage.get('included').get('voice').get('unittype')
-                self._used_percentage_voice = sharedusage.get('included').get('voice').get('usedpercentage')
-                self._remaining_volume_voice = str(sharedusage.get('included').get('voice').get('remainingunits')) + ' ' + sharedusage.get('included').get('voice').get('unittype')
-            
-            self._outofbundle = str(sharedusage.get('outofbundle').get('usedunits')) + ' ' + sharedusage.get('outofbundle').get('unittype')
+            if sharedusage.get('outofbundle'):
+                self._outofbundle = f"{sharedusage.get('outofbundle').get('usedunits')} {sharedusage.get('outofbundle').get('unittype')}"
         
     async def async_will_remove_from_hass(self):
         """Clean up after entity before removal."""
@@ -389,7 +394,7 @@ class ComponentMobileShared(Entity):
     def unique_id(self) -> str:
         """Return the name of the sensor."""
         return (
-            NAME + " mobile shared"
+            f"{NAME} mobile shared"
         )
 
     @property
@@ -483,24 +488,26 @@ class ComponentMobileUnassigned(Entity):
         
         #todo: add checks on empty elements
         if unassignesub:
-            if unassignesub.get('included').get('data'):
-                self._total_volume_data = str(unassignesub.get('included').get('data').get('startunits')) + ' ' + unassignesub.get('included').get('data').get('unittype')
-                self._used_percentage_data = unassignesub.get('included').get('data').get('usedpercentage')
-                self._remaining_volume_data = str(unassignesub.get('included').get('data').get('remainingunits')) + ' ' + unassignesub.get('included').get('data').get('unittype')
+            if unassignesub.get('included'):
+                if unassignesub.get('included').get('data'):
+                    self._total_volume_data = f"{unassignesub.get('included').get('data').get('startunits')} {unassignesub.get('included').get('data').get('unittype')}"
+                    self._used_percentage_data = unassignesub.get('included').get('data').get('usedpercentage')
+                    self._remaining_volume_data = f"{unassignesub.get('included').get('data').get('remainingunits')} {unassignesub.get('included').get('data').get('unittype')}"
+                    
+                if unassignesub.get('included').get('text'):
+                    self._total_volume_text = f"{unassignesub.get('included').get('text').get('startunits')} {unassignesub.get('included').get('text').get('unittype')}"
+                    self._used_percentage_text = unassignesub.get('included').get('text').get('usedpercentage')
+                    self._remaining_volume_text = f"{unassignesub.get('included').get('text').get('remainingunits')} {unassignesub.get('included').get('text').get('unittype')}"
+                    
+                if unassignesub.get('included').get('voice'):
+                    self._total_volume_voice = f"{unassignesub.get('included').get('voice').get('startunits')} {unassignesub.get('included').get('voice').get('unittype')}"
+                    self._used_percentage_voice = unassignesub.get('included').get('voice').get('usedpercentage')
+                    self._remaining_volume_voice = f"{unassignesub.get('included').get('voice').get('remainingunits')} {unassignesub.get('included').get('voice').get('unittype')}"
                 
-            if unassignesub.get('included').get('text'):
-                self._total_volume_text = str(unassignesub.get('included').get('text').get('startunits')) + ' ' + unassignesub.get('included').get('text').get('unittype')
-                self._used_percentage_text = unassignesub.get('included').get('text').get('usedpercentage')
-                self._remaining_volume_text = str(unassignesub.get('included').get('text').get('remainingunits')) + ' ' + unassignesub.get('included').get('text').get('unittype')
-                
-            if unassignesub.get('included').get('voice'):
-                self._total_volume_voice = str(unassignesub.get('included').get('voice').get('startunits')) + ' ' + unassignesub.get('included').get('voice').get('unittype')
-                self._used_percentage_voice = unassignesub.get('included').get('voice').get('usedpercentage')
-                self._remaining_volume_voice = str(unassignesub.get('included').get('voice').get('remainingunits')) + ' ' + unassignesub.get('included').get('voice').get('unittype')
-            
             self._number = unassignesub.get('mobile')
             self._active = unassignesub.get('activationstate')
-            self._outofbundle = str(unassignesub.get('outofbundle').get('usedunits')) + ' ' + unassignesub.get('outofbundle').get('unittype')
+            if unassignesub.get('outofbundle'): 
+                self._outofbundle = f"{unassignesub.get('outofbundle').get('usedunits')} {unassignesub.get('outofbundle').get('unittype')}"
             self._mobileinternetonly = unassignesub.get('mobileinternetonly')               
                 
             
@@ -522,7 +529,7 @@ class ComponentMobileUnassigned(Entity):
     def unique_id(self) -> str:
         """Return the name of the sensor."""
         return (
-            NAME + " mobile " + str( self._data._mobilemeter.get('mobileusage')[self._productid].get('unassigned').get('mobilesubscriptions')[self._subsid].get('mobile'))
+            f"{NAME} mobile {self._data._mobilemeter.get('mobileusage')[self._productid].get('unassigned').get('mobilesubscriptions')[self._subsid].get('mobile')}"
         )
 
     @property
@@ -629,24 +636,26 @@ class ComponentMobileAssigned(Entity):
             
             assignesub = profile.get('mobilesubscriptions')[self._subsid]
             if assignesub:
-                if assignesub.get('included').get('data'):
-                    self._total_volume_data = str(assignesub.get('included').get('data').get('startunits')) + ' ' + assignesub.get('included').get('data').get('unittype')
-                    self._used_percentage_data = assignesub.get('included').get('data').get('usedpercentage')
-                    self._remaining_volume_data = str(assignesub.get('included').get('data').get('remainingunits')) + ' ' + assignesub.get('included').get('data').get('unittype')
-                
-                if assignesub.get('included').get('text'):
-                    self._total_volume_text = str(assignesub.get('included').get('text').get('startunits')) + ' ' + assignesub.get('included').get('text').get('unittype')
-                    self._used_percentage_text = assignesub.get('included').get('text').get('usedpercentage')
-                    self._remaining_volume_text = str(assignesub.get('included').get('text').get('remainingunits')) + ' ' + assignesub.get('included').get('text').get('unittype')
-                
-                if assignesub.get('included').get('voice'):
-                    self._total_volume_voice = str(assignesub.get('included').get('voice').get('startunits')) + ' ' + assignesub.get('included').get('voice').get('unittype')                
-                    self._used_percentage_voice = assignesub.get('included').get('voice').get('usedpercentage')
-                    self._remaining_volume_voice = str(assignesub.get('included').get('voice').get('remainingunits')) + ' ' + assignesub.get('included').get('voice').get('unittype')
-                
+                if assignesub.get('included'):
+                    if assignesub.get('included').get('data'):
+                        self._total_volume_data = f"{assignesub.get('included').get('data').get('startunits')} {assignesub.get('included').get('data').get('unittype')}"
+                        self._used_percentage_data = assignesub.get('included').get('data').get('usedpercentage')
+                        self._remaining_volume_data = f"{assignesub.get('included').get('data').get('remainingunits')} {assignesub.get('included').get('data').get('unittype')}"
+                    
+                    if assignesub.get('included').get('text'):
+                        self._total_volume_text = f"{assignesub.get('included').get('text').get('startunits')} {assignesub.get('included').get('text').get('unittype')}"
+                        self._used_percentage_text = assignesub.get('included').get('text').get('usedpercentage')
+                        self._remaining_volume_text = f"{assignesub.get('included').get('text').get('remainingunits')} {assignesub.get('included').get('text').get('unittype')}"
+                    
+                    if assignesub.get('included').get('voice'):
+                        self._total_volume_voice = f"{assignesub.get('included').get('voice').get('startunits')} {assignesub.get('included').get('voice').get('unittype')}"             
+                        self._used_percentage_voice = assignesub.get('included').get('voice').get('usedpercentage')
+                        self._remaining_volume_voice = f"{assignesub.get('included').get('voice').get('remainingunits')} {assignesub.get('included').get('voice').get('unittype')}"
+                    
                 self._number = assignesub.get('mobile')
                 self._active = assignesub.get('activationstate')
-                self._outofbundle = str(assignesub.get('outofbundle').get('usedunits')) + ' ' + assignesub.get('outofbundle').get('unittype')
+                if assignesub.get('outofbundle'):
+                    self._outofbundle = f"{assignesub.get('outofbundle').get('usedunits')} {assignesub.get('outofbundle').get('unittype')}"
                 self._mobileinternetonly = assignesub.get('mobileinternetonly')    
 
                 self._firstname = profile.get('firstname')
@@ -672,7 +681,7 @@ class ComponentMobileAssigned(Entity):
     def unique_id(self) -> str:
         """Return the name of the sensor."""
         return (
-            NAME + " mobile " + str(self._data._mobilemeter.get('mobileusage')[self._productid].get('profiles')[self._profileid].get('mobilesubscriptions')[self._subsid].get('mobile'))
+            f"{NAME} mobile {self._data._mobilemeter.get('mobileusage')[self._productid].get('profiles')[self._profileid].get('mobilesubscriptions')[self._subsid].get('mobile')}"
         )
 
     @property
