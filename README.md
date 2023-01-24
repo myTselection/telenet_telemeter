@@ -1,8 +1,11 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 
 # Telenet Telemeter (Beta)
-[Telenet Telemeter](https://www2.telenet.be/nl/business/klantenservice/raadpleeg-uw-internetverbruik/) Home Assistant custom component
-discussion [Home Assistant Forum](https://community.home-assistant.io/t/telenet-telemeter-isp-monthly-data-usage/444810)
+[Telenet Telemeter](https://www2.telenet.be/nl/business/klantenservice/raadpleeg-uw-internetverbruik/) Home Assistant custom component. This custom component has been built from the ground up to bring your Telenet internet and mobile phone usage details into Home Assistant to help you towards a better follow up on your usage information. This integration is built against the public website provided by Telenet Belgium and has not been tested for any other countries.
+
+This integration is in no way affiliated with Telenet Belgium.
+
+Some discussion on this topic can be found within the [Home Assistant Forum](https://community.home-assistant.io/t/telenet-telemeter-isp-monthly-data-usage/444810)
 
 Based on source code of [Killian Meersman](https://github.com/KillianMeersman/telemeter), all credits go to him. I've only encapsulated it into a HA HACS Custom Component. 
 <p align="right"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/logo.png" width="128"/></p>
