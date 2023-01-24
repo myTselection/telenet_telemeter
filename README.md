@@ -18,6 +18,7 @@ Based on source code of [Killian Meersman](https://github.com/KillianMeersman/te
 - Add 'Telenet Telemeter' integration via HA Settings > 'Devices and Services' > 'Integrations'
 - Provide Telenet username and password
 - A sensor Telenet Telemeter should become available with the percentage of data left and extra attributes on usage and period start/end etc.
+- If 'Mobile' has been selected during setup of the integration, a telenet telemeter mobile sensor will be created for each mobile subscription. If you have shared data in between subscriptions, a shared sensor will be created as well. For now, the sensor state will show the usage (%) state of the data part of each subscription. But details of data/text/voice volume and usage are added as attributes on the sensor, so this information is available too. 
 
 ## Status
 Still some optimisations are planned, see [Issues](https://github.com/myTselection/telenet_telemeter/issues) section in GitHub.
