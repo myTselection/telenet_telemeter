@@ -39,6 +39,7 @@ All other files just contain boilerplat code for the integration to work wtihin 
 
 ## Example usage: (using [dual gauge card](https://github.com/custom-cards/dual-gauge-card))
 ### Gauge & Markdown
+<p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/Markdown%20Gauge%20Card%20example.png"/></p>
 ```
 type: vertical-stack
 cards:
@@ -103,7 +104,6 @@ cards:
     hours_to_show: 500
     refresh_interval: 60
 ```
-<p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/Markdown%20Gauge%20Card%20example.png"/></p>
 
 ### Example conditional card:
 A conditional card might be desired to show a warning when high data used and many days are left. For such a conditional card, an extra binary sensor can be defined in `configuration.yml` 
