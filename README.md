@@ -37,36 +37,71 @@ The main logic and API connection related code can be found within source code t
 
 All other files just contain boilerplat code for the integration to work wtihin HA or to have some constants/strings/translations.
 
-## Example usage:
+## Example usage: (using [dual gauge card](https://github.com/custom-cards/dual-gauge-card))
 ### Gauge & Markdown
 ```
 type: vertical-stack
 cards:
   - type: markdown
-    content: >
-      <img src="https://raw.githubusercontent.com/myTselection/telenet_telemeter/main/logo.png" width="30"/>  **Telenet Telemeter**
+    content: >-
+      ## <img
+      src="https://raw.githubusercontent.com/myTselection/telenet_telemeter/main/logo.png"
+      width="30"/>&nbsp;&nbsp;Telenet Telemeter
+
       ### Total used:
       {{state_attr('sensor.telenet_telemeter','used_percentage')}}%
-      ({{(((state_attr('sensor.telenet_telemeter','includedvolume_usage') or 0) + (state_attr('sensor.telenet_telemeter','extendedvolume_usage') or 0) + (state_attr('sensor.telenet_telemeter','wifree_usage') or 0) + (state_attr('sensor.telenet_telemeter','peak_usage') or 0)/1024/1024)|int}}GB
+      ({{((state_attr('sensor.telenet_telemeter','includedvolume_usage')+state_attr('sensor.telenet_telemeter','extendedvolume_usage')+state_attr('sensor.telenet_telemeter','wifree_usage'))/1024/1024)|int}}GB
       of {{state_attr('sensor.telenet_telemeter','total_volume')|int}}GB)
-      #### {{state_attr('sensor.telenet_telemeter','period_days_left')|int}} days remaining
+
+      #### {{state_attr('sensor.telenet_telemeter','period_days_left')|int}}
+      days remaining
+      ({{state_attr('sensor.telenet_telemeter','total_volume')|int -
+      ((state_attr('sensor.telenet_telemeter','includedvolume_usage')+state_attr('sensor.telenet_telemeter','extendedvolume_usage')+state_attr('sensor.telenet_telemeter','wifree_usage'))/1024/1024)|int}}GB)
+
+
       Period {{state_attr('sensor.telenet_telemeter','period_start') |
       as_timestamp | timestamp_custom("%d-%m-%Y")}} -
-      {{state_attr('sensor.telenet_telemeter','period_end') | as_timestamp | timestamp_custom("%d-%m-%Y")}} 
-      Wi-Free usage: {{(state_attr('sensor.telenet_telemeter','wifree_usage')/1024 )| int}}MB
+      {{state_attr('sensor.telenet_telemeter','period_end') | as_timestamp |
+      timestamp_custom("%d-%m-%Y")}} 
+
+      Wi-Free usage:
+      {{(state_attr('sensor.telenet_telemeter','wifree_usage')/1024 )| int}}MB
+
       {{state_attr('sensor.telenet_telemeter','product')}}, last update:
-      *{{state_attr('sensor.telenet_telemeter','last update') | as_timestamp | timestamp_custom("%d-%m-%Y")}}*
-  - type: gauge
-    entity: sensor.telenet_telemeter
-    max: 100
+      *{{state_attr('sensor.telenet_telemeter','last update') | as_timestamp |
+      timestamp_custom("%d-%m-%Y")}}*
+  - type: custom:dual-gauge-card
+    title: false
     min: 0
-    needle: true
-    unit: '%'
-    name: ''
-    severity:
-      green: 0
-      yellow: 60
-      red: 80
+    max: 100
+    shadeInner: true
+    cardwidth: 350
+    outer:
+      entity: sensor.telenet_telemeter
+      attribute: used_percentage
+      label: used
+      min: 0
+      max: 100
+      unit: '%'
+      colors:
+        - color: var(--label-badge-green)
+          value: 0
+        - color: var(--label-badge-yellow)
+          value: 60
+        - color: var(--label-badge-red)
+          value: 80
+    inner:
+      entity: sensor.telenet_telemeter
+      label: period
+      attribute: period_used_percentage
+      min: 0
+      max: 100
+      unit: '%'
+  - type: history-graph
+    entities:
+      - entity: sensor.telenet_telemeter
+    hours_to_show: 500
+    refresh_interval: 60
 ```
 <p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/Markdown%20Gauge%20Card%20example.png"/></p>
 
