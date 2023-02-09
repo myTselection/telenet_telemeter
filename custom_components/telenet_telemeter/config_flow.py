@@ -6,6 +6,13 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.const import (
+    CONF_NAME,
+    CONF_PASSWORD,
+    CONF_RESOURCES,
+    CONF_SCAN_INTERVAL,
+    CONF_USERNAME
+)
 
 from . import DOMAIN, NAME
 from .utils import (check_settings)
@@ -20,8 +27,8 @@ def create_schema(entry, option=False):
 
     if option:
         # We use .get here incase some of the texts gets changed.
-        default_username = entry.data.get("username", "")
-        default_password = entry.data.get("password", "")
+        default_username = entry.data.get(CONF_USERNAME, "")
+        default_password = entry.data.get(CONF_PASSWORD, "")
         default_internet = entry.data.get("internet", True)
         default_mobile = entry.data.get("mobile", True)
     else:
@@ -32,10 +39,10 @@ def create_schema(entry, option=False):
 
     data_schema = OrderedDict()
     data_schema[
-        vol.Optional("username", default=default_username, description="username")
+        vol.Required(CONF_USERNAME, description="username")
     ] = str
     data_schema[
-        vol.Optional("password", default=default_password, description="password")
+        vol.Required(CONF_PASSWORD, description="password")
     ] = str
     data_schema[
         vol.Optional("internet", default=default_internet, description="Track internet usage?")
@@ -61,7 +68,7 @@ class Mixin:
         username = None
 
         if user_input.get("username"):
-            username = user_input.get("username")
+            username = user_input.get(CONF_USERNAME)
         else:
             self._errors["base"] = "missing username"
             
@@ -69,7 +76,7 @@ class Mixin:
         password = None
 
         if user_input.get("password"):
-            password = user_input.get("password")
+            password = user_input.get(CONF_PASSWORD)
         else:
             self._errors["base"] = "missing password"
             
