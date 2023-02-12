@@ -19,8 +19,8 @@ _TELENET_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.0%z"
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
-        vol.Optional("username", default=""): cv.string,
-        vol.Optional("password", default=""): cv.string,
+        vol.Required("username"): cv.string,
+        vol.Required("password"): cv.string,
         vol.Optional("internet", default=True): cv.boolean,
         vol.Optional("mobile", default=True): cv.boolean,
     }
@@ -145,11 +145,15 @@ class ComponentData:
             _LOGGER.debug("init login completed")
             if self._internet:
                 self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
+                # mock data
+                # self._telemeter = 
                 assert self._telemeter is not None
                 _LOGGER.debug(f"init telemeter data: {self._telemeter}")
                 self._producturl = self._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('specurl') 
                 assert self._producturl is not None
                 self._product_details = await self._hass.async_add_executor_job(lambda: self._session.telemeter_product_details(self._producturl))
+                # mock data
+                # self._product_details = {"product":{"productid":627,"labelkey":"internet.line.fmc.wigo35gb","visible":True,"family":"FMC_RMD","producttype":"PRODUCT","weight":2,"apps":[{"labelkey":"support"}],"services":[{"labelkey":"surf.fixedinternet.wigo","servicetype":"FIXED_INTERNET","experience":{"experiencetype":"SURF","weight":10},"weight":0,"specifications":[{"labelkey":"spec.fixedinternet.wifree","value":"1","visible":False,"weight":7},{"labelkey":"spec.fixedinternet.speed.download","value":"300","unit":"Mbps","visible":True,"weight":1},{"labelkey":"spec.fixedinternet.volume.download.fup","value":"FUP","visible":True,"weight":3},{"labelkey":"spec.fixedinternet.mailbox.volume","value":"5","unit":"GB","visible":True,"weight":5},{"labelkey":"spec.fixedinternet.mailbox.included","value":"10","visible":True,"weight":4},{"labelkey":"spec.fixedinternet.speed.upload","value":"20","unit":"Mbps","visible":True,"weight":2}]}],"characteristics":{"alert_threshold_marker":{"unit":"GB","value":"750"},"detailed_scale":{"unit":"GB","value":"25"},"productsegment":"RMD","service_category":"FUP","productgroup":"FMC","initial_threshold_2":{"unit":"GB","value":"1050"},"initial_threshold_1":{"unit":"GB","value":"225"},"alert_threshold":{"unit":"GB","value":"525"},"service_category_limit":{"unit":"GB","value":"750"}},"localizedcontent":[{"locale":"nl","name":"All-Internet 300","logo":"https://www2.telenet.be/content/dam/www-telenet-be/img/self-service/products/internet-line-fmc-wigo35gb.png"},{"locale":"fr","name":"All-Internet 300","logo":"https://www2.telenet.be/content/dam/www-telenet-be/img/self-service/products/internet-line-fmc-wigo35gb.png"},{"locale":"en","name":"All-Internet 300","logo":"https://www2.telenet.be/content/dam/www-telenet-be/img/self-service/products/internet-line-fmc-wigo35gb.png"}]}}
                 assert self._product_details is not None
                 _LOGGER.debug(f"init telemeter productdetails: {self._product_details}")
             if self._mobile:
@@ -176,25 +180,25 @@ class SensorInternet(Entity):
         self._data = data
         self._hass = hass
         self._last_update = None
-        self._used_percentage = None
+        self._used_percentage = 0
         self._period_start_date = None
         self._period_end_date = None
         tz_info = None
-        self._period_length = None
-        self._period_left = None
-        self._period_used = None
-        self._total_volume = None
-        self._included_volume = None
-        self._extended_volume = None
-        self._wifree_usage = None
-        self._includedvolume_usage = None
-        self._extendedvolume_usage = None
-        self._period_used_percentage = None
+        self._period_length = 0
+        self._period_left = 0
+        self._period_used = 0
+        self._total_volume = 0
+        self._included_volume = 0
+        self._extended_volume = 0
+        self._wifree_usage = 0
+        self._includedvolume_usage = 0
+        self._extendedvolume_usage = 0
+        self._period_used_percentage = 0
         self._product = None
-        self._download_speed = None
-        self._upload_speed = None
-        self._peak_usage = None
-        self._offpeak_usage = None
+        self._download_speed = 0
+        self._upload_speed = 0
+        self._peak_usage = 0
+        self._offpeak_usage = 0
 
     @property
     def state(self):

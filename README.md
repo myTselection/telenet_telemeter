@@ -52,13 +52,13 @@ cards:
 
       ### Total used:
       {{state_attr('sensor.telenet_telemeter','used_percentage')}}%
-      ({{((state_attr('sensor.telenet_telemeter','includedvolume_usage')+state_attr('sensor.telenet_telemeter','extendedvolume_usage')+state_attr('sensor.telenet_telemeter','wifree_usage'))/1024/1024)|int}}GB
+      ({{(((state_attr('sensor.telenet_telemeter','includedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','extendedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','wifree_usage') or 0))/1024/1024)|int}}GB
       of {{state_attr('sensor.telenet_telemeter','total_volume')|int}}GB)
 
       #### {{state_attr('sensor.telenet_telemeter','period_days_left')|int}}
       days remaining
       ({{state_attr('sensor.telenet_telemeter','total_volume')|int -
-      ((state_attr('sensor.telenet_telemeter','includedvolume_usage')+state_attr('sensor.telenet_telemeter','extendedvolume_usage')+state_attr('sensor.telenet_telemeter','wifree_usage'))/1024/1024)|int}}GB)
+      (((state_attr('sensor.telenet_telemeter','includedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','extendedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','wifree_usage') or 0))/1024/1024)|int}}GB)
 
 
       Period {{state_attr('sensor.telenet_telemeter','period_start') |
@@ -67,7 +67,7 @@ cards:
       timestamp_custom("%d-%m-%Y")}} 
 
       Wi-Free usage:
-      {{(state_attr('sensor.telenet_telemeter','wifree_usage')/1024 )| int}}MB
+      {{((state_attr('sensor.telenet_telemeter','wifree_usage') or 0)/1024 )| int}}MB
 
       {{state_attr('sensor.telenet_telemeter','product')}}, last update:
       *{{state_attr('sensor.telenet_telemeter','last update') | as_timestamp |
