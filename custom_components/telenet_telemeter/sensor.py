@@ -1,10 +1,11 @@
 import logging
 import asyncio
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, time
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from homeassistant.components.sensor import PLATFORM_SCHEMA
+from homeassistant.components.binary_sensor import DEVICE_CLASSES, BinarySensorEntity
 from homeassistant.const import ATTR_ATTRIBUTION
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import Entity
@@ -26,7 +27,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     }
 )
 
-MIN_TIME_BETWEEN_UPDATES = timedelta(hours=1)
+MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=15)
 
 
 async def dry_setup(hass, config_entry, async_add_devices):
@@ -52,6 +53,8 @@ async def dry_setup(hass, config_entry, async_add_devices):
         assert data_internet._telemeter is not None
         sensor = SensorInternet(data_internet, hass)
         sensors.append(sensor)
+        binarysensor = SensorPeak(data_internet, hass)
+        sensors.append(binarysensor)
     if mobile:
         data_mobile = ComponentData(
             username,
@@ -212,10 +215,12 @@ class SensorInternet(Entity):
         self._period_start_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
         self._period_end_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodend'), _TELENET_DATETIME_FORMAT)
         tz_info = self._period_end_date.tzinfo
-        self._period_length = (self._period_end_date - self._period_start_date).days
-        self._period_left = (self._period_end_date - datetime.now(tz_info)).days + 1
+        self._period_length = (self._period_end_date - self._period_start_date).total_seconds()
+        seconds_completed = (datetime.now(tz_info) - self._period_start_date).total_seconds()
+        self._period_left = round(((self._period_end_date - datetime.now(tz_info)).total_seconds())/86400,2)
+        # self._period_used = self._period_length - self._period_left
+        self._period_used = seconds_completed
         _LOGGER.debug(f"telemeter end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}, self._period_length {self._period_length}")
-        self._period_used = self._period_length - self._period_left
         self._period_used_percentage = round(100 * (self._period_used / self._period_length),1)
         
         #original way to get included volume, but now getting out of product details to get FUP limits
@@ -318,6 +323,162 @@ class SensorInternet(Entity):
     def unit_of_measurement(self) -> str:
         """Return the unit of measurement this sensor expresses itself in."""
         return "%"
+
+    @property
+    def friendly_name(self) -> str:
+        return self.unique_id
+        
+
+class SensorPeak(BinarySensorEntity):
+    def __init__(self, data, hass):
+        self._data = data
+        self._hass = hass
+        self._last_update = None
+        self._product = None
+        self._peak = None
+        self._servicecategory = None
+                
+        self._download_speed = 0
+        self._upload_speed = 0
+                
+        self._used_percentage = 0
+        self._peak_usage = 0
+        self._offpeak_usage = 0
+        self._wifree_usage = 0
+        
+        self._included_volume = 0
+        self._extended_volume = 0
+        self._total_volume = 0
+        
+
+    @property
+    def is_on(self):
+        """Return True if the binary sensor is on."""
+        return self._peak
+
+    async def async_update(self):
+        await self._data.update()
+        self._last_update =  self._data._telemeter.get('internetusage')[0].get('lastupdated')
+        self._product = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype')         
+        self._servicecategory = self._data._product_details.get('product').get('characteristics').get('service_category')
+        
+        _LOGGER.debug(f"specifications: {self._data._product_details.get('product').get('services')[0].get('specifications')}")
+        for productdetails in self._data._product_details.get('product').get('services')[0].get('specifications'):
+            _LOGGER.debug(f"productdetails: {productdetails}")
+            if productdetails.get('labelkey') == "spec.fixedinternet.speed.download":
+                self._download_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
+            if productdetails.get('labelkey') == "spec.fixedinternet.speed.upload":
+                self._upload_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
+                
+                
+        if self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None:
+            #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
+            self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+            self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
+            self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
+            
+            self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
+            
+            if self._used_percentage >= 100:
+                self._download_speed = f"1 Mbps"
+                self._upload_speed = f"256 Kbps"
+            # Get the current time
+            now = datetime.now().time()
+
+            # Define the start time and end time for the period
+            start_time = time(10, 0, 0) # 10:00:00 
+            end_time = time(23, 59, 59) # 23:59:59
+
+            # Check if the current time is between the start time and end time
+            if start_time <= now <= end_time:
+                self._peak = True
+            else:
+                self._peak = False
+            
+        else:
+            #when peak indication is available, only use peak + wifree in total used counter, as offpeak is not attributed
+            
+            #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
+            
+            #peak rules: https://www2.telenet.be/nl/klantenservice/wat-zijn-de-piek-en-daluren-bij-een-abonnement-met-onbeperkt-surfen/
+            # https://www2.telenet.be/nl/klantenservice/wat-is-onbeperkt-surfen/
+            
+            self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+            self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
+            self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
+            
+            
+            #original way to get included volume, but now getting out of product details to get FUP limits
+            # self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
+            self._included_volume = int((self._data._product_details.get('product').get('characteristics').get('service_category_limit').get('value'))) * 1024 * 1024
+            self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')
+            
+            self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
+            
+            self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
+            
+            # Unclear if speed in product details will be updated based on actual usage 
+            # most subscription will fall back onto 100Mbps/1Mbps, except for ONEup onto 200Mbps/2Mbps
+            if self._used_percentage >= 100:
+                self._download_speed = f"10 Mbps"
+                self._upload_speed = f"1 Mbps"
+            
+
+            # Get the current time
+            now = datetime.now().time()
+
+            # Define the start time and end time for the period
+            start_time = time(12, 0, 0) # 12:00:00 -> unclear if still 17:00 as applied exceptionally during Corona period
+            end_time = time(23, 59, 59) # 23:59:59
+
+            # Check if the current time is between the start time and end time
+            if start_time <= now <= end_time:
+                self._peak = True
+            else:
+                self._peak = False
+            
+            
+        
+    async def async_will_remove_from_hass(self):
+        """Clean up after entity before removal."""
+        _LOGGER.info("async_will_remove_from_hass " + NAME)
+        self._data.clear_session()
+
+
+    @property
+    def icon(self) -> str:
+        """Shows the correct icon for container."""
+        return "mdi:check-network-outline"
+        #alternative: 
+        #return "mdi:wifi_tethering_error"
+        
+    @property
+    def unique_id(self) -> str:
+        """Return the name of the sensor."""
+        return (
+            f"{NAME} peak"
+        )
+
+    @property
+    def name(self) -> str:
+        return self.unique_id
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return the state attributes."""
+        return {
+            ATTR_ATTRIBUTION: NAME,
+            "last update": self._last_update,
+            "used_percentage": self._used_percentage,
+            "peak": self._peak,
+            "wifree_usage": self._wifree_usage,
+            "peak_usage": self._peak_usage, 
+            "offpeak_usage": self._offpeak_usage,
+            "servicecategory": self._servicecategory,
+            "download_speed": self._download_speed,
+            "upload_speed": self._upload_speed
+        }
+
 
     @property
     def friendly_name(self) -> str:
