@@ -428,7 +428,7 @@ class SensorPeak(BinarySensorEntity):
             now = datetime.now().time()
 
             # Define the start time and end time for the period
-            start_time = time(12, 0, 0) # 12:00:00 -> unclear if still 17:00 as applied exceptionally during Corona period
+            start_time = time(17, 0, 0) # 17u during as action on corona, non-corona: 12:00:00
             end_time = time(23, 59, 59) # 23:59:59
 
             # Check if the current time is between the start time and end time
