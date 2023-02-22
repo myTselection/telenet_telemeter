@@ -166,7 +166,7 @@ cards:
 
 ### Example conditional card:
 A conditional card might be desired to show a warning when high data used and many days are left. For such a conditional card, an extra binary sensor can be defined in `configuration.yml` 
-If data used_percentage (data used %) is bigger than the period_used_percentage (time % in current period) and data used_percentage is higher than 70% 
+If data `used_percentage` (data used %) is bigger than the `period_used_percentage` (time % in current period) and data `used_percentage` is higher than a chosen percentage (eg 70%)
 <details><summary>Show code example</summary>
 
 ```
@@ -180,7 +180,7 @@ binary_sensor:
 ```
 </details>
 
-This binary sensor can than be used in a conditional lovelace card. The info will only be shown in case you risk to be put on small band soon. Example:
+This binary sensor can than be used in a conditional lovelace card. The info will only be shown in case you risk to be put on small band soon.
 <details><summary>Show code example</summary>
 
 ```   
