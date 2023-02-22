@@ -41,6 +41,7 @@ All other files just contain boilerplat code for the integration to work wtihin 
 ## Example usage: (using [dual gauge card](https://github.com/custom-cards/dual-gauge-card))
 ### Gauge & Markdown
 <p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/Markdown%20Gauge%20Card%20example.png"/></p>
+<p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/ApexChartExample.png"/></p>
 
 <details><summary>Show markdown code example</summary>
 
@@ -61,7 +62,7 @@ cards:
       #### {{state_attr('sensor.telenet_telemeter','period_days_left')|int}}
       days remaining
       ({{state_attr('sensor.telenet_telemeter','total_volume')|int -
-      (((state_attr('sensor.telenet_telemeter','includedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','extendedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','wifree_usage') or 0))/1024/1024)|int}}GB)
+      (((state_attr('sensor.telenet_telemeter','peak_usage') or 0)+(state_attr('sensor.telenet_telemeter','includedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','extendedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','wifree_usage') or 0))/1024/1024)|int}}GB)
 
 
       Period {{state_attr('sensor.telenet_telemeter','period_start') |
@@ -109,6 +110,48 @@ cards:
       - entity: sensor.telenet_telemeter
     hours_to_show: 500
     refresh_interval: 60
+  - type: custom:apexcharts-card
+    apex_config:
+      chart:
+        stacked: true
+      xaxis:
+        labels:
+          format: dd
+      legend:
+        show: true
+    graph_span: 7d1s
+    span:
+      end: day
+    show:
+      last_updated: true
+    header:
+      show: true
+      show_states: true
+      colorize_states: true
+    series:
+      - entity: sensor.telenet_telemeter_peak
+        attribute: peak_usage
+        name: Peak
+        unit: ' GB'
+        type: column
+        color: darkviolet
+        group_by:
+          func: max
+          duration: 1d
+        show:
+          datalabels: true
+        transform: return x / 1024 / 1024;
+      - entity: sensor.telenet_telemeter_peak
+        attribute: offpeak_usage
+        name: Offpeak
+        unit: ' GB'
+        type: column
+        group_by:
+          func: max
+          duration: 1d
+        show:
+          datalabels: true
+        transform: return x / 1024 / 1024;
 ```
 </details>
 
