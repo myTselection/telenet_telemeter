@@ -38,10 +38,9 @@ The main logic and API connection related code can be found within source code t
 
 All other files just contain boilerplat code for the integration to work wtihin HA or to have some constants/strings/translations.
 
-## Example usage: (using [dual gauge card](https://github.com/custom-cards/dual-gauge-card))
-### Gauge & Markdown
+## Example usage:
+### Gauge & Markdown using [dual gauge card](https://github.com/custom-cards/dual-gauge-card)
 <p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/Markdown%20Gauge%20Card%20example.png"/></p>
-<p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/ApexChartExample.png"/></p>
 
 <details><summary>Show markdown code example</summary>
 
@@ -110,6 +109,15 @@ cards:
       - entity: sensor.telenet_telemeter
     hours_to_show: 500
     refresh_interval: 60
+```
+</details>
+
+### [Apex Chart Card](https://github.com/RomRider/apexcharts-card)
+<p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/ApexChartExample.png"/></p>
+
+<details><summary>Show Apex Chart markdown code example</summary>
+
+```
   - type: custom:apexcharts-card
     apex_config:
       chart:
@@ -153,6 +161,7 @@ cards:
           datalabels: true
         transform: return x / 1024 / 1024;
 ```
+
 </details>
 
 ### Example conditional card:
