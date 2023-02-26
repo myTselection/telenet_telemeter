@@ -5,6 +5,15 @@ from pathlib import Path
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Config, HomeAssistant
+from homeassistant.const import Platform
+from .utils import *
+from homeassistant.const import (
+    CONF_NAME,
+    CONF_PASSWORD,
+    CONF_RESOURCES,
+    CONF_SCAN_INTERVAL,
+    CONF_USERNAME
+)
 
 manifestfile = Path(__file__).parent / 'manifest.json'
 with open(manifestfile, 'r') as json_file:
@@ -14,6 +23,7 @@ DOMAIN = manifest_data.get("domain")
 NAME = manifest_data.get("name")
 VERSION = manifest_data.get("version")
 ISSUEURL = manifest_data.get("issue_tracker")
+PLATFORMS = [Platform.SENSOR]
 
 STARTUP = """
 -------------------------------------------------------------------
@@ -31,7 +41,7 @@ If you have any issues with this you need to open an issue here:
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup(hass, config):
+async def async_setup(hass: HomeAssistant, config: dict):
     """Set up this component using YAML."""
     _LOGGER.info(STARTUP)
     if config.get(DOMAIN) is None:
@@ -39,7 +49,7 @@ async def async_setup(hass, config):
         return True
 
     try:
-        await hass.config_entries.async_forward_entry(config, "sensor")
+        await hass.config_entries.async_forward_entry(config, Platform.SENSOR)
         _LOGGER.info("Successfully added sensor from the integration")
     except ValueError:
         pass
@@ -59,21 +69,24 @@ async def update_listener(hass: HomeAssistant, config_entry: ConfigEntry):
     await hass.config_entries.async_reload(config_entry.entry_id)
 
 async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry):
-    await hass.config_entries.async_unload_platforms(config_entry, "sensor")
-    return True
+    unload_ok = await hass.config_entries.async_unload_platforms(config_entry, PLATFORMS)
+    # if unload_ok:
+        # hass.data[DOMAIN].pop(config_entry.entry_id)
+
+    return unload_ok
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Set up component as config entry."""
     hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(config_entry, "sensor")
+        hass.config_entries.async_forward_entry_setup(config_entry, Platform.SENSOR)
     )
     return True
 
 
 async def async_remove_entry(hass, config_entry):
     try:
-        await hass.config_entries.async_forward_entry_unload(config_entry, "sensor")
+        await hass.config_entries.async_forward_entry_unload(config_entry, PLATFORMS)
         _LOGGER.info("Successfully removed sensor from the integration")
     except ValueError:
         pass
