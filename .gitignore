@@ -129,3 +129,6 @@ dmypy.json
 .pyre/
 /*.url
 /telenet_telemeter
+custom_components/telenet_telemeter/secret.py
+tests/secret.py
+custom_components/telenet_telemeter/test.py
