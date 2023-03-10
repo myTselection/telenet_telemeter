@@ -1,4 +1,4 @@
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![HACS Default](https://img.shields.io/badge/HACS-Default-blue.svg)](https://github.com/hacs/default)
 [![GitHub release](https://img.shields.io/github/release/myTselection/telenet_telemeter.svg)](https://github.com/myTselection/telenet_telemeter/releases)
 ![GitHub repo size](https://img.shields.io/github/repo-size/myTselection/telenet_telemeter.svg)
 
@@ -19,7 +19,7 @@ Based on source code of [Killian Meersman](https://github.com/KillianMeersman/te
 
 
 ## Installation
-- [HACS](https://hacs.xyz/): add url https://github.com/myTselection/telenet_telemeter as custom repository (HACS > Integration > option: Custom Repositories)
+- [HACS](https://hacs.xyz/): search for Telenet Telemeter in HACS integrations and install
 - Restart Home Assistant
 - Add 'Telenet Telemeter' integration via HA Settings > 'Devices and Services' > 'Integrations'
 - Provide Telenet username and password
