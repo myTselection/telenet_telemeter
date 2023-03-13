@@ -202,6 +202,7 @@ class SensorInternet(Entity):
         self._upload_speed = 0
         self._peak_usage = 0
         self._offpeak_usage = 0
+        self._squeezed = False
 
     @property
     def state(self):
@@ -246,6 +247,11 @@ class SensorInternet(Entity):
             
             self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
             
+            if self._used_percentage >= 100:
+                self._squeezed = True
+            else:
+                self._squeezed = False
+            
         else:
             #when peak indication is available, only use peak + wifree in total used counter, as offpeak is not attributed
             self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
@@ -253,6 +259,8 @@ class SensorInternet(Entity):
             self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
             
             self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
+            
+            self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
 
             
         
@@ -295,6 +303,7 @@ class SensorInternet(Entity):
             "extendedvolume_usage": self._extendedvolume_usage,
             "peak_usage": self._peak_usage, 
             "offpeak_usage": self._offpeak_usage,
+            "sequeezed": self._squeezed,
             "period_start": self._period_start_date,
             "period_end": self._period_end_date,
             "period_days_left": self._period_left,
@@ -349,6 +358,7 @@ class SensorPeak(BinarySensorEntity):
         self._included_volume = 0
         self._extended_volume = 0
         self._total_volume = 0
+        self._squeezed = False
         
 
     @property
@@ -382,6 +392,9 @@ class SensorPeak(BinarySensorEntity):
             if self._used_percentage >= 100:
                 self._download_speed = f"1 Mbps"
                 self._upload_speed = f"256 Kbps"
+                self._squeezed = True
+            else:
+                self._squeezed = False
             # Get the current time
             now = datetime.now().time()
 
@@ -416,6 +429,7 @@ class SensorPeak(BinarySensorEntity):
             self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
             
             self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
+            self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
             
             # Unclear if speed in product details will be updated based on actual usage 
             # most subscription will fall back onto 100Mbps/1Mbps, except for ONEup onto 200Mbps/2Mbps
@@ -474,6 +488,7 @@ class SensorPeak(BinarySensorEntity):
             "wifree_usage": self._wifree_usage,
             "peak_usage": self._peak_usage, 
             "offpeak_usage": self._offpeak_usage,
+            "sequeezed": self._squeezed,
             "servicecategory": self._servicecategory,
             "download_speed": self._download_speed,
             "upload_speed": self._upload_speed
