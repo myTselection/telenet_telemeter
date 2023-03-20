@@ -132,6 +132,7 @@ class ComponentData:
         self._client = client
         self._session = TelenetSession()
         self._telemeter = None
+        self._telemeterV2 = None
         self._mobilemeter = None
         self._producturl = None
         self._product_details = None
@@ -148,11 +149,32 @@ class ComponentData:
             _LOGGER.debug("init login completed")
             if self._internet:
                 self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
+                if not self._telemeter:
+                    # try new backend structure
+                    planInfo = await self._hass.async_add_executor_job(lambda: self._session.planInfo())
+                    productIdentifier = ""
+                    for plan in planInfo:
+                        if plan.get('productType','').lower() == "internet":
+                            productIdentifier = plan.get('identifier')
+                            break
+                    billcycles = await self._hass.async_add_executor_job(lambda: self._session.billCycles("internet",productIdentifier))
+                    startDate = billcycles.get('billCycles')[0].get("startDate")
+                    endDate = billcycles.get('billCycles')[0].get("endDate")
+                    self._telemeterV2 = await self._hass.async_add_executor_job(lambda: self._session.productUsage("internet",productIdentifier, startDate,endDate))
+                    self._telemeterV2['startDate'] = startDate
+                    self._telemeterV2['endDate'] = endDate
+                    self._telemeterV2['productIdentifier'] = productIdentifier
+                    
                 # mock data
                 # self._telemeter = 
-                assert self._telemeter is not None
-                _LOGGER.debug(f"init telemeter data: {self._telemeter}")
-                self._producturl = self._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('specurl') 
+                if not self._telemeter:
+                    assert self._telemeterV2 is not None
+
+                _LOGGER.debug(f"init telemeter data: {self._telemeter} {self._telemeterV2}")
+                if self._telemeter:
+                    self._producturl = self._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('specurl') 
+                else:
+                    self._producturl = self._telemeterV2.get('internet').get('specurl') 
                 assert self._producturl is not None
                 self._product_details = await self._hass.async_add_executor_job(lambda: self._session.telemeter_product_details(self._producturl))
                 # mock data
@@ -211,11 +233,21 @@ class SensorInternet(Entity):
 
     async def async_update(self):
         await self._data.update()
-        self._last_update =  self._data._telemeter.get('internetusage')[0].get('lastupdated')
-        self._product = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype') 
-        self._period_start_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
-        self._period_end_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodend'), _TELENET_DATETIME_FORMAT)
-        tz_info = self._period_end_date.tzinfo
+        if self._data._telemeter:
+            self._last_update =  self._data._telemeter.get('internetusage')[0].get('lastupdated')
+            self._product = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype') 
+            self._period_start_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
+            self._period_end_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodend'), _TELENET_DATETIME_FORMAT)
+            tz_info = self._period_end_date.tzinfo
+            self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')
+        else:
+            self._last_update =  self._data._telemeterV2.get('internet').get('allocatedUsage').get('lastUsageDate')
+            self._product =  self._data._product_details.get('product').get('labelkey','N/A')
+            self._period_start_date =   datetime.strptime(self._telemeterV2.get('startDate'), _TELENET_DATETIME_FORMAT)
+            self._period_end_date =  datetime.strptime(self._telemeterV2.get('endDate'), _TELENET_DATETIME_FORMAT)
+            tz_info = self._period_end_date.tzinfo
+            self._extended_volume =  0 #TODO unclear if available
+        
         self._period_length = (self._period_end_date - self._period_start_date).total_seconds()
         seconds_completed = (datetime.now(tz_info) - self._period_start_date).total_seconds()
         self._period_left = round(((self._period_end_date - datetime.now(tz_info)).total_seconds())/86400,2)
@@ -226,13 +258,13 @@ class SensorInternet(Entity):
         
         #original way to get included volume, but now getting out of product details to get FUP limits
         # self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
-        self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')
         if type(self._data._product_details.get('product').get('characteristics').get('service_category_limit')) == dict:
-            self._included_volume = int((self._data._product_details.get('product').get('characteristics').get('service_category_limit').get('value'))) * 1024 * 1024            
-            self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
+            self._included_volume = int((self._data._product_details.get('product').get('characteristics').get('service_category_limit').get('value'))) * 1024 * 1024  
         else:
-            self._included_volume = 0            
-            self._total_volume = 0
+            for elem in self._data._product_details.get('product').get('characteristics').get('elementarycharacteristics'):
+                if elem.get("key") == "internet_usage_limit":
+                    self._included_volume = int(elem.get('value')) * 1024 * 1024      
+        self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
         
         _LOGGER.debug(f"specifications: {self._data._product_details.get('product').get('services')[0].get('specifications')}")
         for productdetails in self._data._product_details.get('product').get('services')[0].get('specifications'):
@@ -242,15 +274,20 @@ class SensorInternet(Entity):
             if productdetails.get('labelkey') == "spec.fixedinternet.speed.upload":
                 self._upload_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
         
-        if self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None:
+        if (self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (self._data._telemeterV2 and self._data._telemeterV2.get('internet').get('peakUsage') is None):
             #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
-            self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
-            self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
-            self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
-            
+            if self._data._telemeter:
+                self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+                self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
+                self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
+            else:
+                self._wifree_usage = self._data._telemeterV2.get('internet').get('wifreeUsage').get('usedUnits')
+                self._includedvolume_usage = self._data._telemeterV2.get('internet').get('totalUsage').get('units')
+                self._extendedvolume_usage = self._data._telemeterV2.get('internet').get('extendedUsage').get('volume')
+
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
-                self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
+                self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage ) / ( self._included_volume + self._extended_volume)),1)
             
             if self._used_percentage >= 100:
                 self._squeezed = True
@@ -259,15 +296,25 @@ class SensorInternet(Entity):
             
         else:
             #when peak indication is available, only use peak + wifree in total used counter, as offpeak is not attributed
-            self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
-            self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
-            self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
+            if self._data._telemeter:
+                self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+                self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
+                self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
+                self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
+            else:
+                self._wifree_usage = self._data._telemeterV2.get('internet').get('wifreeUsage').get('usedUnits')
+                self._peak_usage = self._data._telemeterV2.get('internet').get('peakUsage').get('units')
+                self._offpeak_usage = self._data._telemeterV2.get('internet').get('totalUsage').get('units') - self._data._telemeterV2.get('internet').get('peakUsage').get('units')
+
             
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
                 self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
+            if not self._data._telemeter and self._used_percentage >= 100:
+                self._squeezed = True
+            else:
+                self._squeezed = False
             
-            self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
 
             
         
@@ -375,8 +422,14 @@ class SensorPeak(BinarySensorEntity):
 
     async def async_update(self):
         await self._data.update()
-        self._last_update =  self._data._telemeter.get('internetusage')[0].get('lastupdated')
-        self._product = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype')         
+        if self._data._telemeter:
+            self._last_update =  self._data._telemeter.get('internetusage')[0].get('lastupdated')
+            self._product = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype')  
+            self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume') 
+        else:
+            self._last_update =  self._data._telemeterV2.get('internet').get('allocatedUsage').get('lastUsageDate')
+            self._product =  self._data._product_details.get('product').get('labelkey','N/A')      
+            self._extended_volume =  0 #TODO unclear if available
         self._servicecategory = self._data._product_details.get('product').get('characteristics').get('service_category')
         
         _LOGGER.debug(f"specifications: {self._data._product_details.get('product').get('services')[0].get('specifications')}")
@@ -388,16 +441,21 @@ class SensorPeak(BinarySensorEntity):
                 self._upload_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
                 
                 
-        if self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None:
+        if (self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (self._data._telemeterV2 and self._data._telemeterV2.get('internet').get('peakUsage') is None):
             #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
-            self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
-            self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
-            self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
+            if self._data._telemeter:
+                self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+                self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
+                self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
+            else:
+                self._wifree_usage = self._data._telemeterV2.get('internet').get('wifreeUsage').get('usedUnits')
+                self._includedvolume_usage = self._data._telemeterV2.get('internet').get('totalUsage').get('units')
+                self._extendedvolume_usage = self._data._telemeterV2.get('internet').get('extendedUsage').get('volume')
             
             
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
-                self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
+                self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage ) / ( self._included_volume + self._extended_volume)),1)
             
             if self._used_percentage >= 100:
                 self._download_speed = f"1 Mbps"
@@ -426,27 +484,36 @@ class SensorPeak(BinarySensorEntity):
             #peak rules: https://www2.telenet.be/nl/klantenservice/wat-zijn-de-piek-en-daluren-bij-een-abonnement-met-onbeperkt-surfen/
             # https://www2.telenet.be/nl/klantenservice/wat-is-onbeperkt-surfen/
             
-            self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
-            self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
-            self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
+            if self._data._telemeter:
+                self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+                self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
+                self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
+                self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
+            else:
+                self._wifree_usage = self._data._telemeterV2.get('internet').get('wifreeUsage').get('usedUnits')
+                self._peak_usage = self._data._telemeterV2.get('internet').get('peakUsage').get('units')
+                self._offpeak_usage = self._data._telemeterV2.get('internet').get('totalUsage').get('units') - self._data._telemeterV2.get('internet').get('peakUsage').get('units')
             
             
             #original way to get included volume, but now getting out of product details to get FUP limits
             # self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
             
-            self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')
             if type(self._data._product_details.get('product').get('characteristics').get('service_category_limit')) == dict:
-                self._included_volume = int((self._data._product_details.get('product').get('characteristics').get('service_category_limit').get('value'))) * 1024 * 1024            
-                self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
+                self._included_volume = int((self._data._product_details.get('product').get('characteristics').get('service_category_limit').get('value'))) * 1024 * 1024  
             else:
-                self._included_volume = 0
-                self._total_volume = 0
+                for elem in self._data._product_details.get('product').get('characteristics').get('elementarycharacteristics'):
+                    if elem.get("key") == "internet_usage_limit":
+                        self._included_volume = int(elem.get('value')) * 1024 * 1024      
+            self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
             
             
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
                 self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
-            self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
+            if not self._data._telemeter and self._used_percentage >= 100:
+                self._squeezed = True
+            else:
+                self._squeezed = False
             
             # Unclear if speed in product details will be updated based on actual usage 
             # most subscription will fall back onto 100Mbps/1Mbps, except for ONEup onto 200Mbps/2Mbps

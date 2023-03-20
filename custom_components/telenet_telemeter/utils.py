@@ -100,9 +100,9 @@ class TelenetSession(object):
         )
         _LOGGER.debug("telemeter result status code: " + str(response.status_code))
         _LOGGER.debug("telemeter result " + response.text)
-        assert response.status_code == 200
-        # return next(Telemeter.from_json(response.json()))
-        return response.json()
+        if response.status_code == 200:
+            # return next(Telemeter.from_json(response.json()))
+            return response.json()
 
     def telemeter_product_details(self, url):
         response = self.s.get(
@@ -128,5 +128,47 @@ class TelenetSession(object):
         )
         _LOGGER.info("mobile result status code: " + str(response.status_code))
         _LOGGER.info("mobile result " + response.text)
+        if response.status_code == 200:
+            return response.json()
+        
+    def planInfo(self):
+        response = self.s.get(
+            "https://api.prd.telenet.be/ocapi/public/api/product-service/v1/product-subscriptions?producttypes=PLAN",
+            headers={
+                "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
+            },
+            timeout=10,
+        )
+        _LOGGER.debug("plan result status code: " + str(response.status_code))
+        _LOGGER.debug("plan result " + response.text)
         assert response.status_code == 200
+        # return next(Telemeter.from_json(response.json()))
+        return response.json()
+    
+    def billCycles(self, productType, productIdentifier):
+        response = self.s.get(
+            f"https://api.prd.telenet.be/ocapi/public/api/billing-service/v1/account/products/{productIdentifier}/billcycle-details?producttype={productType}&count=3",
+            headers={
+                "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
+            },
+            timeout=10,
+        )
+        _LOGGER.debug("billCycles result status code: " + str(response.status_code))
+        _LOGGER.debug("billCycles result " + response.text)
+        assert response.status_code == 200
+        # return next(Telemeter.from_json(response.json()))
+        return response.json()
+    
+    def productUsage(self, productType, productIdentifier,startDate, endDate):
+        response = self.s.get(
+            f"https://api.prd.telenet.be/ocapi/public/api/product-service/v1/products/{productType}/{productIdentifier}/usage?fromDate={startDate}&toDate={endDate}",
+            headers={
+                "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
+            },
+            timeout=10,
+        )
+        _LOGGER.debug("productUsage result status code: " + str(response.status_code))
+        _LOGGER.debug("productUsage result " + response.text)
+        assert response.status_code == 200
+        # return next(Telemeter.from_json(response.json()))
         return response.json()
