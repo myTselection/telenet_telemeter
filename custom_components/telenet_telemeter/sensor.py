@@ -245,7 +245,9 @@ class SensorInternet(Entity):
             self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
             self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
             
-            self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
+            self._used_percentage = 0
+            if ( self._included_volume + self._extended_volume) != 0:
+                self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
             
             if self._used_percentage >= 100:
                 self._squeezed = True
@@ -258,7 +260,9 @@ class SensorInternet(Entity):
             self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
             self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
             
-            self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
+            self._used_percentage = 0
+            if ( self._included_volume + self._extended_volume) != 0:
+                self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
             
             self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
 
@@ -387,7 +391,10 @@ class SensorPeak(BinarySensorEntity):
             self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
             self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
             
-            self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
+            
+            self._used_percentage = 0
+            if ( self._included_volume + self._extended_volume) != 0:
+                self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
             
             if self._used_percentage >= 100:
                 self._download_speed = f"1 Mbps"
@@ -428,7 +435,10 @@ class SensorPeak(BinarySensorEntity):
             
             self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
             
-            self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
+            
+            self._used_percentage = 0
+            if ( self._included_volume + self._extended_volume) != 0:
+                self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
             self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
             
             # Unclear if speed in product details will be updated based on actual usage 
