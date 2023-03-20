@@ -226,10 +226,13 @@ class SensorInternet(Entity):
         
         #original way to get included volume, but now getting out of product details to get FUP limits
         # self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
-        self._included_volume = int((self._data._product_details.get('product').get('characteristics').get('service_category_limit').get('value'))) * 1024 * 1024
         self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')
-        
-        self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
+        if type(self._data._product_details.get('product').get('characteristics').get('service_category_limit')) == dict:
+            self._included_volume = int((self._data._product_details.get('product').get('characteristics').get('service_category_limit').get('value'))) * 1024 * 1024            
+            self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
+        else:
+            self._included_volume = 0            
+            self._total_volume = 0
         
         _LOGGER.debug(f"specifications: {self._data._product_details.get('product').get('services')[0].get('specifications')}")
         for productdetails in self._data._product_details.get('product').get('services')[0].get('specifications'):
@@ -430,10 +433,14 @@ class SensorPeak(BinarySensorEntity):
             
             #original way to get included volume, but now getting out of product details to get FUP limits
             # self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
-            self._included_volume = int((self._data._product_details.get('product').get('characteristics').get('service_category_limit').get('value'))) * 1024 * 1024
-            self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')
             
-            self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
+            self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')
+            if type(self._data._product_details.get('product').get('characteristics').get('service_category_limit')) == dict:
+                self._included_volume = int((self._data._product_details.get('product').get('characteristics').get('service_category_limit').get('value'))) * 1024 * 1024            
+                self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
+            else:
+                self._included_volume = 0
+                self._total_volume = 0
             
             
             self._used_percentage = 0
