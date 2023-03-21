@@ -51,7 +51,7 @@ class TelenetSession(object):
         headers = {"x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice"}
 
         response = self.s.get("https://api.prd.telenet.be/ocapi/oauth/userdetails", headers=headers,timeout=10)
-        _LOGGER.debug("userdetails restult " + str(response.status_code))
+        _LOGGER.debug("userdetails result status code:" + str(response.status_code))
         if (response.status_code == 200):
             # Return if already authenticated
             return
@@ -65,7 +65,7 @@ class TelenetSession(object):
         _LOGGER.debug("login result status code: " + str(response.status_code))
         
         response = self.s.post("https://login.prd.telenet.be/openid/login.do",data={"j_username": username,"j_password": password,"rememberme": True,},timeout=10)
-        _LOGGER.debug("post result status code: " + str(response.status_code))
+        _LOGGER.debug("login post result status code: " + str(response.status_code))
         assert response.status_code == 200
 
         self.s.headers["X-TOKEN-XSRF"] = self.s.cookies.get("TOKEN-XSRF")
@@ -139,8 +139,8 @@ class TelenetSession(object):
             },
             timeout=10,
         )
-        _LOGGER.debug("plan result status code: " + str(response.status_code))
-        _LOGGER.debug("plan result " + response.text)
+        _LOGGER.debug("planInfo result status code: " + str(response.status_code))
+        _LOGGER.debug("planInfo result " + response.text)
         assert response.status_code == 200
         # return next(Telemeter.from_json(response.json()))
         return response.json()
@@ -153,6 +153,7 @@ class TelenetSession(object):
             },
             timeout=10,
         )
+        _LOGGER.debug("billCycles url: " + str(response.url))
         _LOGGER.debug("billCycles result status code: " + str(response.status_code))
         _LOGGER.debug("billCycles result " + response.text)
         assert response.status_code == 200
@@ -172,3 +173,30 @@ class TelenetSession(object):
         assert response.status_code == 200
         # return next(Telemeter.from_json(response.json()))
         return response.json()
+
+    def productSubscriptions(self, productType):
+        response = self.s.get(
+            f"https://api.prd.telenet.be/ocapi/public/api/product-service/v1/product-subscriptions?producttypes={productType}",
+            headers={
+                "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
+            },
+            timeout=10,
+        )
+        _LOGGER.debug("productSubscriptions result status code: " + str(response.status_code))
+        _LOGGER.debug("productSubscriptions result " + response.text)
+        assert response.status_code == 200
+        return response.json()
+
+    def mobileUsage(self, productIdentifier):
+        response = self.s.get(
+            f"https://api.prd.telenet.be/ocapi/public/api/mobile-service/v3/mobilesubscriptions/{productIdentifier}/usages",
+            headers={
+                "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
+            },
+            timeout=10,
+        )
+        _LOGGER.debug("mobileUsage result status code: " + str(response.status_code))
+        _LOGGER.debug("mobileUsage result " + response.text)
+        assert response.status_code == 200
+        return response.json()
+    

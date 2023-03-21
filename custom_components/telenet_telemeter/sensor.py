@@ -69,32 +69,38 @@ async def dry_setup(hass, config_entry, async_add_devices):
         assert data_mobile._mobilemeter is not None
         # createa mobile sensor for each mobile subscription
         # for mobilenr in data_mobile._mobilemeter
-        mobileusage = data_mobile._mobilemeter.get('mobileusage')
-        for idxproduct, product in enumerate(mobileusage):
-            _LOGGER.debug("enumarate mobileusage elements idx:" + str(idxproduct) + ", product: "+ str(product) + " " +  NAME)
-            #shared sensor
-            if product.get('sharedusage'):
-                _LOGGER.info("shared mobileusage element " +  NAME)
-                sensor = ComponentMobileShared(data_mobile, idxproduct, hass)
-                sensors.append(sensor)
-            #unassigned sensor
-            if product.get('unassigned'):
-                _LOGGER.info("unassined mobileusage element " +  NAME)
-                for idxunsubs, subscription in enumerate(product.get('unassigned').get('mobilesubscriptions')):
-                    _LOGGER.debug("enumarate unassigned subsc elements idx:" + str(idxunsubs) + ", subscription: "+ str(subscription) + " " +  NAME)
-                    #unassigned sensor
-                    sensor = SensorMobileUnassigned(data_mobile, idxproduct, idxunsubs, hass)
+        if not TELENET_V2:
+            mobileusage = data_mobile._mobilemeter.get('mobileusage')
+            for idxproduct, product in enumerate(mobileusage):
+                _LOGGER.debug("enumarate mobileusage elements idx:" + str(idxproduct) + ", product: "+ str(product) + " " +  NAME)
+                #shared sensor
+                if product.get('sharedusage'):
+                    _LOGGER.info("shared mobileusage element " +  NAME)
+                    sensor = ComponentMobileShared(data_mobile, idxproduct, hass)
                     sensors.append(sensor)
-            #assigned sensor
-            if product.get('profiles'):
-                _LOGGER.info("assined mobileusage element " +  NAME)
-                for idxunprofile, profile in enumerate(product.get('profiles')):
-                    _LOGGER.debug("enumarate assigned profiles elements idx:" + str(idxunprofile) + ", profile: "+ str(profile) + " " +  NAME)
-                    for idxunsubs, subscription in enumerate(product.get('profiles')[idxunprofile].get('mobilesubscriptions')):
-                        _LOGGER.debug("enumarate assigned subsc elements idx:" + str(idxunsubs) + ", subscription: "+ str(subscription) + " " +  NAME)
-                        #assigned sensor
-                        sensor = SensorMobileAssigned(data_mobile, idxproduct, idxunprofile, idxunsubs, hass)
+                #unassigned sensor
+                if product.get('unassigned'):
+                    _LOGGER.info("unassigned mobileusage element " +  NAME)
+                    for idxunsubs, subscription in enumerate(product.get('unassigned').get('mobilesubscriptions')):
+                        _LOGGER.debug("enumarate unassigned subsc elements idx:" + str(idxunsubs) + ", subscription: "+ str(subscription) + " " +  NAME)
+                        #unassigned sensor
+                        sensor = SensorMobileUnassigned(data_mobile, idxproduct, idxunsubs, hass)
                         sensors.append(sensor)
+                #assigned sensor
+                if product.get('profiles'):
+                    _LOGGER.info("assigned mobileusage element " +  NAME)
+                    for idxunprofile, profile in enumerate(product.get('profiles')):
+                        _LOGGER.debug("enumarate assigned profiles elements idx:" + str(idxunprofile) + ", profile: "+ str(profile) + " " +  NAME)
+                        for idxunsubs, subscription in enumerate(product.get('profiles')[idxunprofile].get('mobilesubscriptions')):
+                            _LOGGER.debug("enumarate assigned subsc elements idx:" + str(idxunsubs) + ", subscription: "+ str(subscription) + " " +  NAME)
+                            #assigned sensor
+                            sensor = SensorMobileAssigned(data_mobile, idxproduct, idxunprofile, idxunsubs, hass)
+                            sensors.append(sensor)
+        else:
+            for productSubscription in data_mobile._mobilemeter:
+                _LOGGER.debug("Mobile productSubscription " +  productSubscription.get("identifier") + " [" +  productSubscription.get("label") + "]")
+                sensor = SensorMobile(data_mobile, productSubscription, hass)
+                sensors.append(sensor)
     async_add_devices(sensors)
 
 
@@ -140,7 +146,7 @@ class ComponentData:
         
     # same as update, but without throttle to make sure init is always executed
     async def _forced_update(self):
-        _LOGGER.info("Fetching intit stuff for " + NAME)
+        _LOGGER.info("Fetching init stuff for " + NAME)
         if not(self._session):
             self._session = TelenetSession()
 
@@ -189,10 +195,11 @@ class ComponentData:
                 assert self._product_details is not None
                 _LOGGER.debug(f"ComponentData init telemeter productdetails: {self._product_details}")
             if self._mobile:
-                self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.mobile())
-                # mock data
-                # self._mobilemeter = {"mobileusage":[{"label":"O2","specurl":"https://api.prd.telenet.be/omapi/public/product/36860","identifier":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","nextbillingdate":"2023-02-20T00:00:00.0+01:00","lastupdated":"2023-01-23T07:59:08.1+01:00","address":{"street":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","postalcode":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","municipality":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","country":"Belgi\u00eb","housenr":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","addressid":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"},"unassigned":{"mobilesubscriptions":[{"mobile":"1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","sim":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","pin":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","puk":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","activationstate":"active","graceuntil":"2022-01-14T00:00:00.0+01:00","blockstatus":"OPEN","paused": "False","mobileinternetonly": "True"}],"aggregatedusage":{"included":{"data":{"startunits":600.0,"start":"600","remainingunits":600.0,"remaining":"600,00","usedunits":0.0,"used":"0,00","usedpercentage":0,"unittype":"GB","unlimited": "True","scaledusedpercentage":0}},"outofbundle":{"usedunits":0.0,"unittype":"EUR"}}},"profiles":[{"pid":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","role":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","firstname":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","lastname":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","paused": "False","mobilesubscriptions":[{"mobile":"2xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","sim":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","pin":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","puk":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","activationstate":"active","included":{"data":{"startunits":500.0,"start":"500","remainingunits":499.99,"remaining":"499,99","usedunits":0.01,"used":"0,01","usedpercentage":0,"unittype":"GB","unlimited": "True"},"text":{"startunits":30000.0,"remainingunits":30000.0,"usedunits":0.0,"usedpercentage":0,"unittype":"number","unlimited": "True","scaledusedpercentage":0},"voice":{"startunits":180000,"remainingunits":180000,"usedunits":0,"usedpercentage":0,"unittype":"seconds","unlimited": "True","scaledusedpercentage":0}},"options":[],"outofbundle":{"usedunits":0.0,"unittype":"EUR"},"paused": "False","mobileinternetonly": "False"}],"aggregatedusage":{"included":{"data":{"startunits":600.0,"start":"600","remainingunits":599.99,"remaining":"599,99","usedunits":0.01,"used":"0,01","usedpercentage":0,"unittype":"GB","unlimited": "True","scaledusedpercentage":0}},"outofbundle":{"usedunits":0.0,"unittype":"EUR"}}},{"pid":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","role":"manager","firstname":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","lastname":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","nickname":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","paused": "False","mobilesubscriptions":[{"mobile":"3xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","sim":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","pin":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","puk":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","activationstate":"active","included":{"data":{"startunits":500.0,"start":"500","remainingunits":499.82,"remaining":"499,82","usedunits":0.18,"used":"0,18","usedpercentage":0,"unittype":"GB","unlimited": "True"},"text":{"startunits":30000.0,"remainingunits":30000.0,"usedunits":0.0,"usedpercentage":0,"unittype":"number","unlimited": "True","scaledusedpercentage":0},"voice":{"startunits":180000,"remainingunits":180000,"usedunits":0,"usedpercentage":0,"unittype":"seconds","unlimited": "True","scaledusedpercentage":0}},"options":[],"outofbundle":{"usedunits":0.0,"unittype":"EUR"},"paused": "False","mobileinternetonly": "False"}],"aggregatedusage":{"included":{"data":{"startunits":600.0,"start":"600","remainingunits":599.82,"remaining":"599,82","usedunits":0.18,"used":"0,18","usedpercentage":0,"unittype":"GB","unlimited": "True","scaledusedpercentage":0}},"outofbundle":{"usedunits":0.0,"unittype":"EUR"}}}],"sharedusage":{"outofbundle":{"usedunits":0.0,"unittype":"EUR"},"included":{"data":{"startunits":600.0,"start":"600","remainingunits":599.7,"remaining":"599,7","usedunits":0.3,"used":"0,3","usedpercentage":0,"unittype":"GB","unlimited": "True"}},"options":[]},"freeride":{"active": "False"},"totalusage":{"included":{"data":{"startunits":600.0,"start":"600","remainingunits":599.7,"remaining":"599,7","usedunits":0.3,"used":"0,3","usedpercentage":0,"unittype":"GB"}}}}]}
-                # self._mobilemeter = {'mobileusage': [{'label': 'O1', 'specurl': 'https://api.prd.telenet.be/omapi/public/product/42797', 'identifier': 'O1_46172164', 'nextbillingdate': '2023-01-26T00:00:00.0+01:00', 'lastupdated': '2023-01-21T10:50:01.7+01:00', 'address': {'street': '', 'postalcode': '', 'municipality': '', 'country': '', 'housenr': '', 'addressid': ''}, 'unassigned': {'mobilesubscriptions': []}, 'profiles': [{'pid': '16517642', 'role': 'manager', 'firstname': '', 'lastname': '', 'nickname': '', 'paused': False, 'mobilesubscriptions': [{'mobile': '0477777777', 'sim': '', 'pin': '', 'puk': '', 'activationstate': 'active', 'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 272.9, 'remaining': '272,90', 'usedunits': 27.1, 'used': '27,10', 'usedpercentage': 9, 'unittype': 'GB', 'unlimited': True}, 'text': {'startunits': 30000.0, 'remainingunits': 29990.0, 'usedunits': 10.0, 'usedpercentage': 0, 'unittype': 'number', 'unlimited': True, 'scaledusedpercentage': 1}, 'voice': {'startunits': 180000, 'remainingunits': 174503, 'usedunits': 5497, 'usedpercentage': 3, 'unittype': 'seconds', 'unlimited': True, 'scaledusedpercentage': 36}}, 'options': [], 'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}, 'paused': False, 'mobileinternetonly': False}, {'mobile': '0488888888', 'sim': '', 'pin': '', 'puk': '', 'activationstate': 'active', 'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 290.21, 'remaining': '290,21', 'usedunits': 9.79, 'used': '9,79', 'usedpercentage': 3, 'unittype': 'GB', 'unlimited': True}}, 'options': [], 'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}, 'paused': False, 'mobileinternetonly': True}], 'aggregatedusage': {'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 263.11, 'remaining': '263,11', 'usedunits': 36.89, 'used': '36,89', 'usedpercentage': 12, 'unittype': 'GB', 'unlimited': True, 'scaledusedpercentage': 12}}, 'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}}}], 'sharedusage': {'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}, 'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 263.1, 'remaining': '263,1', 'usedunits': 36.9, 'used': '36,9', 'usedpercentage': 12, 'unittype': 'GB', 'unlimited': True}}, 'options': []}, 'freeride': {'active': False}, 'totalusage': {'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 263.1, 'remaining': '263,1', 'usedunits': 36.9, 'used': '36,9', 'usedpercentage': 12, 'unittype': 'GB'}}}}]}
+                if not TELENET_V2:
+                    self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.mobile())
+                else:
+                    self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("MOBILE"))
+                assert self._mobilemeter is not None
                 _LOGGER.debug(f"ComponentData init mobilemeter data: {self._mobilemeter}")
                 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
@@ -646,35 +653,37 @@ class ComponentMobileShared(Entity):
         await self._data.update()
         _LOGGER.debug(f"mobilemeter ComponentMobileShared productid: {self._productid}")
         
-        mobileusage = self._data._mobilemeter.get('mobileusage')
-        productdetails = mobileusage[self._productid]
-        
-        self._last_update =  productdetails.get('lastupdated')
-        self._product = productdetails.get('label')
-        self._period_end_date = productdetails.get('nextbillingdate')
-        # get shared sensor
-        sharedusage = productdetails.get('sharedusage')
-        
-        #todo: add checks on empty elements
-        if sharedusage:
-            if sharedusage.get('included'):
-                if sharedusage.get('included').get('data'):
-                    self._total_volume_data = f"{sharedusage.get('included').get('data').get('startunits')} {sharedusage.get('included').get('data').get('unittype')}"
-                    self._used_percentage_data = sharedusage.get('included').get('data').get('usedpercentage')
-                    self._remaining_volume_data = f"{sharedusage.get('included').get('data').get('remainingunits')} {sharedusage.get('included').get('data').get('unittype')}"
+        if not TELENET_V2:
+            mobileusage = self._data._mobilemeter.get('mobileusage')
+            productdetails = mobileusage[self._productid]
+            
+            self._last_update =  productdetails.get('lastupdated')
+            self._product = productdetails.get('label')
+            self._period_end_date = productdetails.get('nextbillingdate')
+            # get shared sensor
+            sharedusage = productdetails.get('sharedusage')
+            
+            #todo: add checks on empty elements
+            if sharedusage:
+                if sharedusage.get('included'):
+                    if sharedusage.get('included').get('data'):
+                        self._total_volume_data = f"{sharedusage.get('included').get('data').get('startunits')} {sharedusage.get('included').get('data').get('unittype')}"
+                        self._used_percentage_data = sharedusage.get('included').get('data').get('usedpercentage')
+                        self._remaining_volume_data = f"{sharedusage.get('included').get('data').get('remainingunits')} {sharedusage.get('included').get('data').get('unittype')}"
+                        
+                    if sharedusage.get('included').get('text'):
+                        self._total_volume_text = f"{sharedusage.get('included').get('text').get('startunits')} {sharedusage.get('included').get('text').get('unittype')}"
+                        self._used_percentage_text = sharedusage.get('included').get('text').get('remainingunits') + ' ' + sharedusage.get('included').get('text').get('unittype')
+                        self._remaining_volume_text = f"{sharedusage.get('included').get('text').get('remainingunits')} {sharedusage.get('included').get('data').get('unittype')}"
+                        
+                    if sharedusage.get('included').get('voice'):
+                        self._total_volume_voice = f"{sharedusage.get('included').get('voice').get('startunits')} {sharedusage.get('included').get('voice').get('unittype')}"
+                        self._used_percentage_voice = sharedusage.get('included').get('voice').get('usedpercentage')
+                        self._remaining_volume_voice = f"{sharedusage.get('included').get('voice').get('remainingunits')} {sharedusage.get('included').get('voice').get('unittype')}"
                     
-                if sharedusage.get('included').get('text'):
-                    self._total_volume_text = f"{sharedusage.get('included').get('text').get('startunits')} {sharedusage.get('included').get('text').get('unittype')}"
-                    self._used_percentage_text = sharedusage.get('included').get('text').get('remainingunits') + ' ' + sharedusage.get('included').get('text').get('unittype')
-                    self._remaining_volume_text = f"{sharedusage.get('included').get('text').get('remainingunits')} {sharedusage.get('included').get('data').get('unittype')}"
-                    
-                if sharedusage.get('included').get('voice'):
-                    self._total_volume_voice = f"{sharedusage.get('included').get('voice').get('startunits')} {sharedusage.get('included').get('voice').get('unittype')}"
-                    self._used_percentage_voice = sharedusage.get('included').get('voice').get('usedpercentage')
-                    self._remaining_volume_voice = f"{sharedusage.get('included').get('voice').get('remainingunits')} {sharedusage.get('included').get('voice').get('unittype')}"
-                
-            if sharedusage.get('outofbundle'):
-                self._outofbundle = f"{sharedusage.get('outofbundle').get('usedunits')} {sharedusage.get('outofbundle').get('unittype')}"
+                if sharedusage.get('outofbundle'):
+                    self._outofbundle = f"{sharedusage.get('outofbundle').get('usedunits')} {sharedusage.get('outofbundle').get('unittype')}"
+
         
     async def async_will_remove_from_hass(self):
         """Clean up after entity before removal."""
@@ -1037,3 +1046,142 @@ class SensorMobileAssigned(Entity):
     def friendly_name(self) -> str:
         return self.unique_id
   
+class SensorMobile(Entity):
+    def __init__(self, data, productSubscription, hass):
+        self._data = data
+        self._productSubscription = productSubscription
+        self._hass = hass
+        self._last_update = None
+        self._total_volume_data = None
+        self._total_volume_text = None
+        self._total_volume_voice = None
+        self._remaining_volume_data = None
+        self._remaining_volume_text = None
+        self._remaining_volume_voice = None
+        self._used_percentage_data = None
+        self._used_percentage_text = None
+        self._used_percentage_voice = None
+        self._state = None
+        self._period_end_date = None
+        self._product = None
+        self._identifier = None
+        self._activation_date = None
+        self._number = None
+        self._active = None
+        self._outofbundle = None
+        self._mobileinternetonly = None  
+
+    @property
+    def state(self):
+        """Return the state of the sensor."""
+        return self._state
+
+    async def async_update(self):
+        await self._data.update()
+        self._identifier =  self._productSubscription.get('identifier')
+        self._activation_date =  self._productSubscription.get('activationDate')
+        _LOGGER.debug(f"Mobile sensor sync: {self._identifier}")
+        mobileusage = await self._hass.async_add_executor_job(lambda: self._data._session.mobileUsage(self._identifier))
+        assert mobileusage is not None
+        
+        self._last_update =  mobileusage.get('lastUpdated')
+        self._product = self._productSubscription.get('label')
+        self._period_end_date = mobileusage.get('nextBillingDate')
+        self._outofbundle = f"{mobileusage.get('outOfBundle').get('usedUnits')} {mobileusage.get('outOfBundle').get('unitType')}"
+        self._number = self._identifier
+        self._active = self._productSubscription.get('status')
+        self._mobileinternetonly = self._productSubscription.get('isDataOnlyPlan')    
+
+        if mobileusage.get('included'):
+            if 'data' in mobileusage.get('included'):
+                self._total_volume_data = f"{mobileusage.get('total').get('data').get('startUnits')} {mobileusage.get('total').get('data').get('unitType')}"
+                self._used_percentage_data = mobileusage.get('total').get('data').get('usedPercentage')
+                self._remaining_volume_data = f"{mobileusage.get('total').get('data').get('remainingUnits')} {mobileusage.get('total').get('data').get('unitType')}"
+                _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_data} {self._used_percentage_data} {self._remaining_volume_data}")
+                
+            if 'text' in mobileusage.get('included'):
+                self._total_volume_text = f"{mobileusage.get('total').get('text').get('startUnits')}"
+                self._used_percentage_text = mobileusage.get('total').get('text').get('usedPercentage')
+                self._remaining_volume_text = f"{mobileusage.get('total').get('text').get('remainingUnits')}"
+                _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_text} {self._used_percentage_text} {self._remaining_volume_text}")
+                
+            if 'voice' in mobileusage.get('included'):
+                self._total_volume_voice = f"{mobileusage.get('total').get('voice').get('startUnits')} {mobileusage.get('total').get('voice').get('unitType').lower()}"
+                self._used_percentage_voice = mobileusage.get('total').get('voice').get('usedPercentage')
+                self._remaining_volume_voice = f"{mobileusage.get('total').get('voice').get('remainingUnits')} {mobileusage.get('total').get('voice').get('unitType').lower()}"
+                _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_voice} {self._used_percentage_voice} {self._remaining_volume_voice}")
+            if self._used_percentage_data:
+                self._state = self._used_percentage_data
+            else:
+                self._state = self._used_percentage_voice
+        
+    async def async_will_remove_from_hass(self):
+        """Clean up after entity before removal."""
+        _LOGGER.info("async_will_remove_from_hass " + NAME)
+        self._data.clear_session()
+
+
+    @property
+    def icon(self) -> str:
+        """Shows the correct icon for container."""
+        return "mdi:check-network-outline"
+        #alternative: 
+        #return "mdi:wifi_tethering_error"
+        
+    @property
+    def unique_id(self) -> str:
+        """Return the name of the sensor."""
+        return (
+            f"{NAME} mobile {self._productSubscription.get('identifier')}"
+        )
+
+    @property
+    def name(self) -> str:
+        return self.unique_id
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return the state attributes."""
+        return {
+            ATTR_ATTRIBUTION: NAME,
+            "last update": self._last_update,
+            "used_percentage_data": self._used_percentage_data,
+            "used_percentage_text": self._used_percentage_text,
+            "used_percentage_voice": self._used_percentage_voice,
+            "total_volume_data": self._total_volume_data,
+            "total_volume_text": self._total_volume_text,
+            "total_volume_voice": self._total_volume_voice,
+            "remaining_volume_data": self._remaining_volume_data,
+            "remaining_volume_text": self._remaining_volume_text,
+            "remaining_volume_voice": self._remaining_volume_voice,
+            "period_end": self._period_end_date,
+            "product": self._product,
+            "mobile_json": self._data._mobilemeter,
+            "number" : self._number,
+            "active" : self._active,
+            "outofbundle" : self._outofbundle,
+            "mobileinternetonly" :  self._mobileinternetonly
+        }
+
+    @property
+    def device_info(self) -> dict:
+        """I can't remember why this was needed :D"""
+        return {
+            "identifiers": {(DOMAIN, self.unique_id)},
+            "name": self.name,
+            "manufacturer": DOMAIN,
+        }
+
+    @property
+    def unit(self) -> int:
+        """Unit"""
+        return int
+
+    @property
+    def unit_of_measurement(self) -> str:
+        """Return the unit of measurement this sensor expresses itself in."""
+        return "%"
+
+    @property
+    def friendly_name(self) -> str:
+        return self.unique_id
