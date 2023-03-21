@@ -299,7 +299,10 @@ class SensorInternet(Entity):
 
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
-                self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage ) / ( self._included_volume + self._extended_volume)),1)
+                if not TELENET_V2:
+                    self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage ) / ( self._included_volume + self._extended_volume)),2)
+                else:
+                    self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage ) / ( (self._included_volume/1024/1024) + self._extended_volume)),2)
             
             if self._used_percentage >= 100:
                 self._squeezed = True
@@ -319,13 +322,16 @@ class SensorInternet(Entity):
                 self._offpeak_usage = self._data._telemeter.get('internet').get('totalUsage').get('units') - self._data._telemeter.get('internet').get('peakUsage').get('usedUnits')
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
-                self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
+                if not TELENET_V2:
+                    self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),2)
+                else:
+                    self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( (self._included_volume/1024/1024) + self._extended_volume)),2)
             if not self._data._telemeter and self._used_percentage >= 100:
                 self._squeezed = True
             else:
                 self._squeezed = False
             _LOGGER.debug(f"SensorInternet _wifree_usage: {self._wifree_usage}")
-            _LOGGER.debug(f"SensorInternet _peak_usage: {self._peak_usage}")
+            _LOGGER.debug(f"SensorInternet _peak_usage: {self._peak_usage}")53.91
             _LOGGER.debug(f"SensorInternet _offpeak_usage: {self._offpeak_usage}")
             _LOGGER.debug(f"SensorInternet _included_volume: {self._included_volume}")
             _LOGGER.debug(f"SensorInternet _extended_volume: {self._extended_volume}")
