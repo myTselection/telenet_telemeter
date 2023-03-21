@@ -365,7 +365,7 @@ class SensorInternet(Entity):
     def unique_id(self) -> str:
         """Return the name of the sensor."""
         return (
-            NAME
+            f"{NAME} internet {self._data._telemeter.get('productIdentifier')}"
         )
 
     @property
@@ -591,7 +591,7 @@ class SensorPeak(BinarySensorEntity):
     def unique_id(self) -> str:
         """Return the name of the sensor."""
         return (
-            f"{NAME} peak"
+            f"{NAME} peak {self._data._telemeter.get('productIdentifier')}"
         )
 
     @property
