@@ -1097,27 +1097,27 @@ class SensorMobile(Entity):
         self._mobileinternetonly = self._productSubscription.get('isDataOnlyPlan')    
 
         if mobileusage.get('included'):
-            usage = mobileusage.get('included')
+            usage = mobileusage.get('total')
         elif mobileusage.get('shared'):
             usage = mobileusage.get('shared')
 
         if usage:
             if 'data' in usage:
-                self._total_volume_data = f"{mobileusage.get('total').get('data').get('usedUnits')} {mobileusage.get('total').get('data').get('unitType')}"
-                self._used_percentage_data = mobileusage.get('total').get('data').get('usedPercentage')
-                self._remaining_volume_data = f"{mobileusage.get('total').get('data').get('remainingUnits')} {mobileusage.get('total').get('data').get('unitType')}"
+                self._total_volume_data = f"{usage.get('data').get('usedUnits')} {usage.get('data').get('unitType')}"
+                self._used_percentage_data = usage.get('data').get('usedPercentage')
+                self._remaining_volume_data = f"{usage.get('data').get('remainingUnits')} {usage.get('data').get('unitType')}"
                 _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_data} {self._used_percentage_data} {self._remaining_volume_data}")
                 
             if 'text' in usage:
-                self._total_volume_text = f"{mobileusage.get('total').get('text').get('usedUnits')}"
-                self._used_percentage_text = mobileusage.get('total').get('text').get('usedPercentage')
-                self._remaining_volume_text = f"{mobileusage.get('total').get('text').get('remainingUnits')}"
+                self._total_volume_text = f"{usage.get('text').get('usedUnits')}"
+                self._used_percentage_text = usage.get('text').get('usedPercentage')
+                self._remaining_volume_text = f"{usage.get('text').get('remainingUnits')}"
                 _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_text} {self._used_percentage_text} {self._remaining_volume_text}")
                 
             if 'voice' in usage:
-                self._total_volume_voice = f"{mobileusage.get('total').get('voice').get('usedUnits')} {mobileusage.get('total').get('voice').get('unitType').lower()}"
-                self._used_percentage_voice = mobileusage.get('total').get('voice').get('usedPercentage')
-                self._remaining_volume_voice = f"{mobileusage.get('total').get('voice').get('remainingUnits')} {mobileusage.get('total').get('voice').get('unitType').lower()}"
+                self._total_volume_voice = f"{usage.get('voice').get('usedUnits')} {usage.get('voice').get('unitType').lower()}"
+                self._used_percentage_voice = usage.get('voice').get('usedPercentage')
+                self._remaining_volume_voice = f"{usage.get('voice').get('remainingUnits')} {usage.get('voice').get('unitType').lower()}"
                 _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_voice} {self._used_percentage_voice} {self._remaining_volume_voice}")
             if self._used_percentage_data:
                 self._state = self._used_percentage_data
