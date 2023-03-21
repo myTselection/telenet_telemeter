@@ -160,7 +160,7 @@ class ComponentData:
                         if plan.get('productType','').lower() == "bundle":
                             for product in plan.get('products'):
                                 if product.get('productType','').lower() == "internet":
-                                    productIdentifier = plan.get('identifier')
+                                    productIdentifier = product.get('identifier')
                                     break
                         elif plan.get('productType','').lower() == "internet":
                             productIdentifier = plan.get('identifier')
