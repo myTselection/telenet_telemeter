@@ -1064,6 +1064,7 @@ class SensorMobile(Entity):
         self._state = None
         self._period_end_date = None
         self._product = None
+        self._label = None
         self._identifier = None
         self._activation_date = None
         self._number = None
@@ -1081,11 +1082,14 @@ class SensorMobile(Entity):
         self._identifier =  self._productSubscription.get('identifier')
         self._activation_date =  self._productSubscription.get('activationDate')
         _LOGGER.debug(f"Mobile sensor sync: {self._identifier}")
-        mobileusage = await self._hass.async_add_executor_job(lambda: self._data._session.mobileUsage(self._identifier))
+        if self._productSubscription.get('productType') == 'bundle':
+            mobileusage = await self._hass.async_add_executor_job(lambda: self._data._session.mobileBundleUsage(self._productSubscription.get('bundleIdentifier'),self._identifier))
+        else:
+            mobileusage = await self._hass.async_add_executor_job(lambda: self._data._session.mobileUsage(self._identifier))
         assert mobileusage is not None
         
         self._last_update =  mobileusage.get('lastUpdated')
-        self._product = self._productSubscription.get('label')
+        self._label = self._product = self._productSubscription.get('label')
         self._period_end_date = mobileusage.get('nextBillingDate')
         self._outofbundle = f"{mobileusage.get('outOfBundle').get('usedUnits')} {mobileusage.get('outOfBundle').get('unitType')}"
         self._number = self._identifier
@@ -1093,19 +1097,24 @@ class SensorMobile(Entity):
         self._mobileinternetonly = self._productSubscription.get('isDataOnlyPlan')    
 
         if mobileusage.get('included'):
-            if 'data' in mobileusage.get('included'):
+            usage = mobileusage.get('included')
+        elif mobileusage.get('shared'):
+            usage = mobileusage.get('shared')
+
+        if usage:
+            if 'data' in usage:
                 self._total_volume_data = f"{mobileusage.get('total').get('data').get('usedUnits')} {mobileusage.get('total').get('data').get('unitType')}"
                 self._used_percentage_data = mobileusage.get('total').get('data').get('usedPercentage')
                 self._remaining_volume_data = f"{mobileusage.get('total').get('data').get('remainingUnits')} {mobileusage.get('total').get('data').get('unitType')}"
                 _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_data} {self._used_percentage_data} {self._remaining_volume_data}")
                 
-            if 'text' in mobileusage.get('included'):
+            if 'text' in usage:
                 self._total_volume_text = f"{mobileusage.get('total').get('text').get('usedUnits')}"
                 self._used_percentage_text = mobileusage.get('total').get('text').get('usedPercentage')
                 self._remaining_volume_text = f"{mobileusage.get('total').get('text').get('remainingUnits')}"
                 _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_text} {self._used_percentage_text} {self._remaining_volume_text}")
                 
-            if 'voice' in mobileusage.get('included'):
+            if 'voice' in usage:
                 self._total_volume_voice = f"{mobileusage.get('total').get('voice').get('usedUnits')} {mobileusage.get('total').get('voice').get('unitType').lower()}"
                 self._used_percentage_voice = mobileusage.get('total').get('voice').get('usedPercentage')
                 self._remaining_volume_voice = f"{mobileusage.get('total').get('voice').get('remainingUnits')} {mobileusage.get('total').get('voice').get('unitType').lower()}"
@@ -1124,7 +1133,7 @@ class SensorMobile(Entity):
     @property
     def icon(self) -> str:
         """Shows the correct icon for container."""
-        return "mdi:check-network-outline"
+        return "mdi:cellphone-information"
         #alternative: 
         #return "mdi:wifi_tethering_error"
         
@@ -1144,6 +1153,7 @@ class SensorMobile(Entity):
         """Return the state attributes."""
         return {
             ATTR_ATTRIBUTION: NAME,
+            "label": self._label,
             "last update": self._last_update,
             "used_percentage_data": self._used_percentage_data,
             "used_percentage_text": self._used_percentage_text,

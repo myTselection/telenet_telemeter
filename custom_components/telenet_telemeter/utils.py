@@ -199,4 +199,25 @@ class TelenetSession(object):
         _LOGGER.debug("mobileUsage result " + response.text)
         assert response.status_code == 200
         return response.json()
-    
+
+    def mobileBundleUsage(self, bundleIdentifier, lineIdentifier = None):
+        if lineIdentifier != None:
+            response = self.s.get(
+                f"https://api.prd.telenet.be/ocapi/public/api/mobile-service/v3/mobilesubscriptions/{bundleIdentifier}/usages?type=bundle&lineIdentifier={lineIdentifier}",
+                headers={
+                    "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
+                },
+                timeout=10,
+            )
+        else:
+            response = self.s.get(
+                f"https://api.prd.telenet.be/ocapi/public/api/mobile-service/v3/mobilesubscriptions/{bundleIdentifier}/usages?type=bundle",
+                headers={
+                    "x-alt-referer": "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice",
+                },
+                timeout=10,
+            )
+        _LOGGER.debug("mobileBundleUsage result status code: " + str(response.status_code))
+        _LOGGER.debug("mobileBundleUsage result " + response.text)
+        assert response.status_code == 200
+        return response.json()
