@@ -16,7 +16,8 @@ from .utils import *
 
 _LOGGER = logging.getLogger(__name__)
 _TELENET_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.0%z"
-
+_TELENET_DATETIME_FORMAT_V2 = "%Y-%m-%d"
+TELENET_V2=True
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -132,7 +133,6 @@ class ComponentData:
         self._client = client
         self._session = TelenetSession()
         self._telemeter = None
-        self._telemeterV2 = None
         self._mobilemeter = None
         self._producturl = None
         self._product_details = None
@@ -146,10 +146,11 @@ class ComponentData:
 
         if self._session:
             await self._hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
-            _LOGGER.debug("init login completed")
+            _LOGGER.debug("ComponentData init login completed")
             if self._internet:
-                self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
-                if not self._telemeter:
+                if not TELENET_V2:
+                    self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
+                else:
                     # try new backend structure
                     planInfo = await self._hass.async_add_executor_job(lambda: self._session.planInfo())
                     productIdentifier = ""
@@ -160,33 +161,32 @@ class ComponentData:
                     billcycles = await self._hass.async_add_executor_job(lambda: self._session.billCycles("internet",productIdentifier))
                     startDate = billcycles.get('billCycles')[0].get("startDate")
                     endDate = billcycles.get('billCycles')[0].get("endDate")
-                    self._telemeterV2 = await self._hass.async_add_executor_job(lambda: self._session.productUsage("internet",productIdentifier, startDate,endDate))
-                    self._telemeterV2['startDate'] = startDate
-                    self._telemeterV2['endDate'] = endDate
-                    self._telemeterV2['productIdentifier'] = productIdentifier
+                    self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.productUsage("internet",productIdentifier, startDate,endDate))
+                    self._telemeter['startDate'] = startDate
+                    self._telemeter['endDate'] = endDate
+                    self._telemeter['productIdentifier'] = productIdentifier
                     
                 # mock data
                 # self._telemeter = 
-                if not self._telemeter:
-                    assert self._telemeterV2 is not None
 
-                _LOGGER.debug(f"init telemeter data: {self._telemeter} {self._telemeterV2}")
-                if self._telemeter:
+                if not TELENET_V2:
                     self._producturl = self._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('specurl') 
+                    _LOGGER.debug(f"ComponentData init telemeter data: {self._telemeter}")
                 else:
-                    self._producturl = self._telemeterV2.get('internet').get('specurl') 
+                    self._producturl = self._telemeter.get('internet').get('specurl') 
+                _LOGGER.debug(f"ComponentData init telemeter data: {self._telemeter}")
                 assert self._producturl is not None
                 self._product_details = await self._hass.async_add_executor_job(lambda: self._session.telemeter_product_details(self._producturl))
                 # mock data
                 # self._product_details = {"product":{"productid":627,"labelkey":"internet.line.fmc.wigo35gb","visible":True,"family":"FMC_RMD","producttype":"PRODUCT","weight":2,"apps":[{"labelkey":"support"}],"services":[{"labelkey":"surf.fixedinternet.wigo","servicetype":"FIXED_INTERNET","experience":{"experiencetype":"SURF","weight":10},"weight":0,"specifications":[{"labelkey":"spec.fixedinternet.wifree","value":"1","visible":False,"weight":7},{"labelkey":"spec.fixedinternet.speed.download","value":"300","unit":"Mbps","visible":True,"weight":1},{"labelkey":"spec.fixedinternet.volume.download.fup","value":"FUP","visible":True,"weight":3},{"labelkey":"spec.fixedinternet.mailbox.volume","value":"5","unit":"GB","visible":True,"weight":5},{"labelkey":"spec.fixedinternet.mailbox.included","value":"10","visible":True,"weight":4},{"labelkey":"spec.fixedinternet.speed.upload","value":"20","unit":"Mbps","visible":True,"weight":2}]}],"characteristics":{"alert_threshold_marker":{"unit":"GB","value":"750"},"detailed_scale":{"unit":"GB","value":"25"},"productsegment":"RMD","service_category":"FUP","productgroup":"FMC","initial_threshold_2":{"unit":"GB","value":"1050"},"initial_threshold_1":{"unit":"GB","value":"225"},"alert_threshold":{"unit":"GB","value":"525"},"service_category_limit":{"unit":"GB","value":"750"}},"localizedcontent":[{"locale":"nl","name":"All-Internet 300","logo":"https://www2.telenet.be/content/dam/www-telenet-be/img/self-service/products/internet-line-fmc-wigo35gb.png"},{"locale":"fr","name":"All-Internet 300","logo":"https://www2.telenet.be/content/dam/www-telenet-be/img/self-service/products/internet-line-fmc-wigo35gb.png"},{"locale":"en","name":"All-Internet 300","logo":"https://www2.telenet.be/content/dam/www-telenet-be/img/self-service/products/internet-line-fmc-wigo35gb.png"}]}}
                 assert self._product_details is not None
-                _LOGGER.debug(f"init telemeter productdetails: {self._product_details}")
+                _LOGGER.debug(f"ComponentData init telemeter productdetails: {self._product_details}")
             if self._mobile:
                 self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.mobile())
                 # mock data
                 # self._mobilemeter = {"mobileusage":[{"label":"O2","specurl":"https://api.prd.telenet.be/omapi/public/product/36860","identifier":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","nextbillingdate":"2023-02-20T00:00:00.0+01:00","lastupdated":"2023-01-23T07:59:08.1+01:00","address":{"street":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","postalcode":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","municipality":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","country":"Belgi\u00eb","housenr":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","addressid":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"},"unassigned":{"mobilesubscriptions":[{"mobile":"1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","sim":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","pin":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","puk":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","activationstate":"active","graceuntil":"2022-01-14T00:00:00.0+01:00","blockstatus":"OPEN","paused": "False","mobileinternetonly": "True"}],"aggregatedusage":{"included":{"data":{"startunits":600.0,"start":"600","remainingunits":600.0,"remaining":"600,00","usedunits":0.0,"used":"0,00","usedpercentage":0,"unittype":"GB","unlimited": "True","scaledusedpercentage":0}},"outofbundle":{"usedunits":0.0,"unittype":"EUR"}}},"profiles":[{"pid":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","role":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","firstname":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","lastname":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","paused": "False","mobilesubscriptions":[{"mobile":"2xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","sim":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","pin":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","puk":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","activationstate":"active","included":{"data":{"startunits":500.0,"start":"500","remainingunits":499.99,"remaining":"499,99","usedunits":0.01,"used":"0,01","usedpercentage":0,"unittype":"GB","unlimited": "True"},"text":{"startunits":30000.0,"remainingunits":30000.0,"usedunits":0.0,"usedpercentage":0,"unittype":"number","unlimited": "True","scaledusedpercentage":0},"voice":{"startunits":180000,"remainingunits":180000,"usedunits":0,"usedpercentage":0,"unittype":"seconds","unlimited": "True","scaledusedpercentage":0}},"options":[],"outofbundle":{"usedunits":0.0,"unittype":"EUR"},"paused": "False","mobileinternetonly": "False"}],"aggregatedusage":{"included":{"data":{"startunits":600.0,"start":"600","remainingunits":599.99,"remaining":"599,99","usedunits":0.01,"used":"0,01","usedpercentage":0,"unittype":"GB","unlimited": "True","scaledusedpercentage":0}},"outofbundle":{"usedunits":0.0,"unittype":"EUR"}}},{"pid":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","role":"manager","firstname":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","lastname":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","nickname":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","paused": "False","mobilesubscriptions":[{"mobile":"3xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","sim":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","pin":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","puk":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","activationstate":"active","included":{"data":{"startunits":500.0,"start":"500","remainingunits":499.82,"remaining":"499,82","usedunits":0.18,"used":"0,18","usedpercentage":0,"unittype":"GB","unlimited": "True"},"text":{"startunits":30000.0,"remainingunits":30000.0,"usedunits":0.0,"usedpercentage":0,"unittype":"number","unlimited": "True","scaledusedpercentage":0},"voice":{"startunits":180000,"remainingunits":180000,"usedunits":0,"usedpercentage":0,"unittype":"seconds","unlimited": "True","scaledusedpercentage":0}},"options":[],"outofbundle":{"usedunits":0.0,"unittype":"EUR"},"paused": "False","mobileinternetonly": "False"}],"aggregatedusage":{"included":{"data":{"startunits":600.0,"start":"600","remainingunits":599.82,"remaining":"599,82","usedunits":0.18,"used":"0,18","usedpercentage":0,"unittype":"GB","unlimited": "True","scaledusedpercentage":0}},"outofbundle":{"usedunits":0.0,"unittype":"EUR"}}}],"sharedusage":{"outofbundle":{"usedunits":0.0,"unittype":"EUR"},"included":{"data":{"startunits":600.0,"start":"600","remainingunits":599.7,"remaining":"599,7","usedunits":0.3,"used":"0,3","usedpercentage":0,"unittype":"GB","unlimited": "True"}},"options":[]},"freeride":{"active": "False"},"totalusage":{"included":{"data":{"startunits":600.0,"start":"600","remainingunits":599.7,"remaining":"599,7","usedunits":0.3,"used":"0,3","usedpercentage":0,"unittype":"GB"}}}}]}
                 # self._mobilemeter = {'mobileusage': [{'label': 'O1', 'specurl': 'https://api.prd.telenet.be/omapi/public/product/42797', 'identifier': 'O1_46172164', 'nextbillingdate': '2023-01-26T00:00:00.0+01:00', 'lastupdated': '2023-01-21T10:50:01.7+01:00', 'address': {'street': '', 'postalcode': '', 'municipality': '', 'country': '', 'housenr': '', 'addressid': ''}, 'unassigned': {'mobilesubscriptions': []}, 'profiles': [{'pid': '16517642', 'role': 'manager', 'firstname': '', 'lastname': '', 'nickname': '', 'paused': False, 'mobilesubscriptions': [{'mobile': '0477777777', 'sim': '', 'pin': '', 'puk': '', 'activationstate': 'active', 'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 272.9, 'remaining': '272,90', 'usedunits': 27.1, 'used': '27,10', 'usedpercentage': 9, 'unittype': 'GB', 'unlimited': True}, 'text': {'startunits': 30000.0, 'remainingunits': 29990.0, 'usedunits': 10.0, 'usedpercentage': 0, 'unittype': 'number', 'unlimited': True, 'scaledusedpercentage': 1}, 'voice': {'startunits': 180000, 'remainingunits': 174503, 'usedunits': 5497, 'usedpercentage': 3, 'unittype': 'seconds', 'unlimited': True, 'scaledusedpercentage': 36}}, 'options': [], 'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}, 'paused': False, 'mobileinternetonly': False}, {'mobile': '0488888888', 'sim': '', 'pin': '', 'puk': '', 'activationstate': 'active', 'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 290.21, 'remaining': '290,21', 'usedunits': 9.79, 'used': '9,79', 'usedpercentage': 3, 'unittype': 'GB', 'unlimited': True}}, 'options': [], 'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}, 'paused': False, 'mobileinternetonly': True}], 'aggregatedusage': {'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 263.11, 'remaining': '263,11', 'usedunits': 36.89, 'used': '36,89', 'usedpercentage': 12, 'unittype': 'GB', 'unlimited': True, 'scaledusedpercentage': 12}}, 'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}}}], 'sharedusage': {'outofbundle': {'usedunits': 0.0, 'unittype': 'EUR'}, 'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 263.1, 'remaining': '263,1', 'usedunits': 36.9, 'used': '36,9', 'usedpercentage': 12, 'unittype': 'GB', 'unlimited': True}}, 'options': []}, 'freeride': {'active': False}, 'totalusage': {'included': {'data': {'startunits': 300.0, 'start': '300', 'remainingunits': 263.1, 'remaining': '263,1', 'usedunits': 36.9, 'used': '36,9', 'usedpercentage': 12, 'unittype': 'GB'}}}}]}
-                _LOGGER.debug(f"init mobilemeter data: {self._mobilemeter}")
+                _LOGGER.debug(f"ComponentData init mobilemeter data: {self._mobilemeter}")
                 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def _update(self):
@@ -233,7 +233,7 @@ class SensorInternet(Entity):
 
     async def async_update(self):
         await self._data.update()
-        if self._data._telemeter:
+        if not TELENET_V2:
             self._last_update =  self._data._telemeter.get('internetusage')[0].get('lastupdated')
             self._product = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype') 
             self._period_start_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
@@ -241,19 +241,24 @@ class SensorInternet(Entity):
             tz_info = self._period_end_date.tzinfo
             self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')
         else:
-            self._last_update =  self._data._telemeterV2.get('internet').get('allocatedUsage').get('lastUsageDate')
+            self._last_update =  self._data._telemeter.get('internet').get('totalUsage').get('lastUsageDate')
             self._product =  self._data._product_details.get('product').get('labelkey','N/A')
-            self._period_start_date =   datetime.strptime(self._telemeterV2.get('startDate'), _TELENET_DATETIME_FORMAT)
-            self._period_end_date =  datetime.strptime(self._telemeterV2.get('endDate'), _TELENET_DATETIME_FORMAT)
+            self._period_start_date =   datetime.strptime(self._data._telemeter.get('startDate'), _TELENET_DATETIME_FORMAT_V2)
+            self._period_end_date =  datetime.strptime(self._data._telemeter.get('endDate'), _TELENET_DATETIME_FORMAT_V2)
             tz_info = self._period_end_date.tzinfo
             self._extended_volume =  0 #TODO unclear if available
-        
+        _LOGGER.debug(f"SensorInternet _last_update: {self._last_update}")
+        _LOGGER.debug(f"SensorInternet _product: {self._product}")
+        _LOGGER.debug(f"SensorInternet _period_start_date: {self._period_start_date}")
+        _LOGGER.debug(f"SensorInternet _period_end_date: {self._period_end_date}")
+        _LOGGER.debug(f"SensorInternet tz_info: {tz_info}")
+
         self._period_length = (self._period_end_date - self._period_start_date).total_seconds()
         seconds_completed = (datetime.now(tz_info) - self._period_start_date).total_seconds()
         self._period_left = round(((self._period_end_date - datetime.now(tz_info)).total_seconds())/86400,2)
         # self._period_used = self._period_length - self._period_left
         self._period_used = seconds_completed
-        _LOGGER.debug(f"telemeter end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}, self._period_length {self._period_length}")
+        _LOGGER.debug(f"SensorInternet end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}, self._period_length {self._period_length}")
         self._period_used_percentage = round(100 * (self._period_used / self._period_length),1)
         
         #original way to get included volume, but now getting out of product details to get FUP limits
@@ -266,24 +271,24 @@ class SensorInternet(Entity):
                     self._included_volume = int(elem.get('value')) * 1024 * 1024      
         self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
         
-        _LOGGER.debug(f"specifications: {self._data._product_details.get('product').get('services')[0].get('specifications')}")
+        _LOGGER.debug(f"SensorInternet specifications: {self._data._product_details.get('product').get('services')[0].get('specifications')}")
         for productdetails in self._data._product_details.get('product').get('services')[0].get('specifications'):
-            _LOGGER.debug(f"productdetails: {productdetails}")
+            _LOGGER.debug(f"SensorInternet productdetails: {productdetails}")
             if productdetails.get('labelkey') == "spec.fixedinternet.speed.download":
                 self._download_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
             if productdetails.get('labelkey') == "spec.fixedinternet.speed.upload":
                 self._upload_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
         
-        if (self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (self._data._telemeterV2 and self._data._telemeterV2.get('internet').get('peakUsage') is None):
+        if (not TELENET_V2 and self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (TELENET_V2 and self._data._telemeter and self._data._telemeter.get('internet').get('peakUsage') is None):
             #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
-            if self._data._telemeter:
+            if not TELENET_V2:
                 self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
                 self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
                 self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
             else:
-                self._wifree_usage = self._data._telemeterV2.get('internet').get('wifreeUsage').get('usedUnits')
-                self._includedvolume_usage = self._data._telemeterV2.get('internet').get('totalUsage').get('units')
-                self._extendedvolume_usage = self._data._telemeterV2.get('internet').get('extendedUsage').get('volume')
+                self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
+                self._includedvolume_usage = self._data._telemeter.get('internet').get('totalUsage').get('units')
+                self._extendedvolume_usage = self._data._telemeter.get('internet').get('extendedUsage').get('volume')
 
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
@@ -296,17 +301,15 @@ class SensorInternet(Entity):
             
         else:
             #when peak indication is available, only use peak + wifree in total used counter, as offpeak is not attributed
-            if self._data._telemeter:
+            if not TELENET_V2:
                 self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
                 self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
                 self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
                 self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
             else:
-                self._wifree_usage = self._data._telemeterV2.get('internet').get('wifreeUsage').get('usedUnits')
-                self._peak_usage = self._data._telemeterV2.get('internet').get('peakUsage').get('units')
-                self._offpeak_usage = self._data._telemeterV2.get('internet').get('totalUsage').get('units') - self._data._telemeterV2.get('internet').get('peakUsage').get('units')
-
-            
+                self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
+                self._peak_usage = self._data._telemeter.get('internet').get('peakUsage').get('usedUnits')
+                self._offpeak_usage = self._data._telemeter.get('internet').get('totalUsage').get('units') - self._data._telemeter.get('internet').get('peakUsage').get('usedUnits')
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
                 self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
@@ -314,6 +317,13 @@ class SensorInternet(Entity):
                 self._squeezed = True
             else:
                 self._squeezed = False
+            _LOGGER.debug(f"SensorInternet _wifree_usage: {self._wifree_usage}")
+            _LOGGER.debug(f"SensorInternet _peak_usage: {self._peak_usage}")
+            _LOGGER.debug(f"SensorInternet _offpeak_usage: {self._offpeak_usage}")
+            _LOGGER.debug(f"SensorInternet _included_volume: {self._included_volume}")
+            _LOGGER.debug(f"SensorInternet _extended_volume: {self._extended_volume}")
+            _LOGGER.debug(f"SensorInternet _used_percentage: {self._used_percentage}")
+            _LOGGER.debug(f"SensorInternet _squeezed: {self._squeezed}")
             
 
             
@@ -422,12 +432,12 @@ class SensorPeak(BinarySensorEntity):
 
     async def async_update(self):
         await self._data.update()
-        if self._data._telemeter:
+        if not TELENET_V2:
             self._last_update =  self._data._telemeter.get('internetusage')[0].get('lastupdated')
             self._product = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype')  
             self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume') 
         else:
-            self._last_update =  self._data._telemeterV2.get('internet').get('allocatedUsage').get('lastUsageDate')
+            self._last_update =  self._data._telemeter.get('internet').get('totalUsage').get('lastUsageDate')
             self._product =  self._data._product_details.get('product').get('labelkey','N/A')      
             self._extended_volume =  0 #TODO unclear if available
         self._servicecategory = self._data._product_details.get('product').get('characteristics').get('service_category')
@@ -441,16 +451,16 @@ class SensorPeak(BinarySensorEntity):
                 self._upload_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
                 
                 
-        if (self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (self._data._telemeterV2 and self._data._telemeterV2.get('internet').get('peakUsage') is None):
+        if (not TELENET_V2 and self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (TELENET_V2 and self._data._telemeter and self._data._telemeter.get('internet').get('peakUsage') is None):
             #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
-            if self._data._telemeter:
+            if not TELENET_V2:
                 self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
                 self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
                 self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
             else:
-                self._wifree_usage = self._data._telemeterV2.get('internet').get('wifreeUsage').get('usedUnits')
-                self._includedvolume_usage = self._data._telemeterV2.get('internet').get('totalUsage').get('units')
-                self._extendedvolume_usage = self._data._telemeterV2.get('internet').get('extendedUsage').get('volume')
+                self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
+                self._includedvolume_usage = self._data._telemeter.get('internet').get('totalUsage').get('units')
+                self._extendedvolume_usage = self._data._telemeter.get('internet').get('extendedUsage').get('volume')
             
             
             self._used_percentage = 0
@@ -475,6 +485,13 @@ class SensorPeak(BinarySensorEntity):
                 self._peak = True
             else:
                 self._peak = False
+            _LOGGER.debug(f"SensorPeak _wifree_usage: {self._wifree_usage}")
+            _LOGGER.debug(f"SensorPeak _includedvolume_usage: {self._includedvolume_usage}")
+            _LOGGER.debug(f"SensorPeak _extendedvolume_usage: {self._extendedvolume_usage}")
+            _LOGGER.debug(f"SensorPeak _download_speed: {self._download_speed}")
+            _LOGGER.debug(f"SensorPeak _upload_speed: {self._upload_speed}")
+            _LOGGER.debug(f"SensorPeak _squeezed: {self._squeezed}")
+            _LOGGER.debug(f"SensorPeak _peak: {self._peak}")
             
         else:
             #when peak indication is available, only use peak + wifree in total used counter, as offpeak is not attributed
@@ -484,15 +501,15 @@ class SensorPeak(BinarySensorEntity):
             #peak rules: https://www2.telenet.be/nl/klantenservice/wat-zijn-de-piek-en-daluren-bij-een-abonnement-met-onbeperkt-surfen/
             # https://www2.telenet.be/nl/klantenservice/wat-is-onbeperkt-surfen/
             
-            if self._data._telemeter:
+            if not TELENET_V2:
                 self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
                 self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
                 self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
                 self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
             else:
-                self._wifree_usage = self._data._telemeterV2.get('internet').get('wifreeUsage').get('usedUnits')
-                self._peak_usage = self._data._telemeterV2.get('internet').get('peakUsage').get('units')
-                self._offpeak_usage = self._data._telemeterV2.get('internet').get('totalUsage').get('units') - self._data._telemeterV2.get('internet').get('peakUsage').get('units')
+                self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
+                self._peak_usage = self._data._telemeter.get('internet').get('peakUsage').get('usedUnits')
+                self._offpeak_usage = self._data._telemeter.get('internet').get('totalUsage').get('units') - self._data._telemeter.get('internet').get('peakUsage').get('usedUnits')
             
             
             #original way to get included volume, but now getting out of product details to get FUP limits
