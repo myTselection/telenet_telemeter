@@ -1165,10 +1165,10 @@ class SensorMobile(Entity):
                 if 'remainingUnits' in voice:
                     self._remaining_volume_voice = f"{voice.get('remainingUnits')} {voice.get('unitType').lower()}"
                 _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_voice} {self._used_percentage_voice} {self._remaining_volume_voice}")
-            if self._used_percentage_data:
+            if self._used_percentage_data != None:
                 self._state = self._used_percentage_data
             else:
-                if self._bundle_used_percentage_data:
+                if self._bundle_used_percentage_data != None:
                     self._state = self._bundle_used_percentage_data
                 else:
                     self._state = self._used_percentage_voice
