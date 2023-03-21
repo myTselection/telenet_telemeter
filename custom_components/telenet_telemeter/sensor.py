@@ -1079,11 +1079,14 @@ class SensorMobile(Entity):
 
     async def async_update(self):
         await self._data.update()
+        bundleusage = None
         self._identifier =  self._productSubscription.get('identifier')
         self._activation_date =  self._productSubscription.get('activationDate')
         _LOGGER.debug(f"Mobile sensor sync: {self._identifier}")
         if self._productSubscription.get('productType') == 'bundle':
             mobileusage = await self._hass.async_add_executor_job(lambda: self._data._session.mobileBundleUsage(self._productSubscription.get('bundleIdentifier'),self._identifier))
+            bundleusage = await self._hass.async_add_executor_job(lambda: self._data._session.mobileBundleUsage(self._productSubscription.get('bundleIdentifier')))
+            assert bundleusage is not None
         else:
             mobileusage = await self._hass.async_add_executor_job(lambda: self._data._session.mobileUsage(self._identifier))
         assert mobileusage is not None
@@ -1096,37 +1099,51 @@ class SensorMobile(Entity):
         self._active = self._productSubscription.get('status')
         self._mobileinternetonly = self._productSubscription.get('isDataOnlyPlan')    
 
+        shared = False
         if mobileusage.get('included'):
             usage = mobileusage.get('total')
         elif mobileusage.get('shared'):
             usage = mobileusage.get('shared')
+            shared = True
 
         if usage:
             if 'data' in usage:
-                if 'usedUnits' in usage.get('data'):
-                    self._total_volume_data = f"{usage.get('data').get('usedUnits')} {usage.get('data').get('unitType')}"
-                if 'usedPercentage' in usage.get('data'):
-                    self._used_percentage_data = usage.get('data').get('usedPercentage')
-                if 'remainingUnits' in usage.get('data'):
-                    self._remaining_volume_data = f"{usage.get('data').get('remainingUnits')} {usage.get('data').get('unitType')}"
+                if shared:
+                    data = usage.get('data')[0]
+                else:
+                    data = usage.get('data')
+                if 'usedUnits' in data:
+                    self._total_volume_data = f"{data.get('usedUnits')} {data.get('unitType')}"
+                if 'usedPercentage' in data:
+                    self._used_percentage_data = data.get('usedPercentage')
+                if 'remainingUnits' in data:
+                    self._remaining_volume_data = f"{data.get('remainingUnits')} {data.get('unitType')}"
                 _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_data} {self._used_percentage_data} {self._remaining_volume_data}")
                 
             if 'text' in usage:
-                if 'usedUnits' in usage.get('text'):
-                    self._total_volume_text = f"{usage.get('text').get('usedUnits')}"
-                if 'usedPercentage' in usage.get('text'):
-                    self._used_percentage_text = usage.get('text').get('usedPercentage')
-                if 'remainingUnits' in usage.get('text'):
-                    self._remaining_volume_text = f"{usage.get('text').get('remainingUnits')}"
+                if shared:
+                    text = usage.get('text')[0]
+                else:
+                    text = usage.get('text')
+                if 'usedUnits' in text:
+                    self._total_volume_text = f"{text.get('usedUnits')}"
+                if 'usedPercentage' in text:
+                    self._used_percentage_text = text.get('usedPercentage')
+                if 'remainingUnits' in text:
+                    self._remaining_volume_text = f"{text.get('remainingUnits')}"
                 _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_text} {self._used_percentage_text} {self._remaining_volume_text}")
                 
             if 'voice' in usage:
-                if 'usedUnits' in usage.get('voice'):
-                    self._total_volume_voice = f"{usage.get('voice').get('usedUnits')} {usage.get('voice').get('unitType').lower()}"
-                if 'usedPercentage' in usage.get('voice'):
-                    self._used_percentage_voice = usage.get('voice').get('usedPercentage')
-                if 'remainingUnits' in usage.get('voice'):
-                    self._remaining_volume_voice = f"{usage.get('voice').get('remainingUnits')} {usage.get('voice').get('unitType').lower()}"
+                if shared:
+                    voice = usage.get('voice')[0]
+                else:
+                    voice = usage.get('voice')
+                if 'usedUnits' in voice:
+                    self._total_volume_voice = f"{voice.get('usedUnits')} {voice.get('unitType').lower()}"
+                if 'usedPercentage' in voice:
+                    self._used_percentage_voice = voice.get('usedPercentage')
+                if 'remainingUnits' in voice:
+                    self._remaining_volume_voice = f"{voice.get('remainingUnits')} {voice.get('unitType').lower()}"
                 _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_voice} {self._used_percentage_voice} {self._remaining_volume_voice}")
             if self._used_percentage_data:
                 self._state = self._used_percentage_data
