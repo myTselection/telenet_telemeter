@@ -1070,7 +1070,12 @@ class SensorMobile(Entity):
         self._number = None
         self._active = None
         self._outofbundle = None
-        self._mobileinternetonly = None  
+        self._mobileinternetonly = None
+        self._bundle_total_volume_data = None
+        self._bundle_used_percentage_data = None
+        self._bundle_remaining_volume_data = None
+        self._bundle_total_volume_text = None
+        self._bundle_total_volume_voice = None
 
     @property
     def state(self):
@@ -1104,11 +1109,19 @@ class SensorMobile(Entity):
             usage = mobileusage.get('total')
         elif mobileusage.get('shared'):
             usage = mobileusage.get('shared')
+            bundle = bundleusage.get('shared')
             shared = True
 
         if usage:
             if 'data' in usage:
                 if shared:
+                    data = bundleusage.get('data')[0]
+                    if 'usedUnits' in data:
+                        self._bundle_total_volume_data = f"{data.get('usedUnits')} {data.get('unitType')}"
+                    if 'usedPercentage' in data:
+                        self._bundle_used_percentage_data = data.get('usedPercentage')
+                    if 'remainingUnits' in data:
+                        self._bundle_remaining_volume_data = f"{data.get('remainingUnits')} {data.get('unitType')}"
                     data = usage.get('data')[0]
                 else:
                     data = usage.get('data')
@@ -1122,6 +1135,9 @@ class SensorMobile(Entity):
                 
             if 'text' in usage:
                 if shared:
+                    text = bundleusage.get('text')[0]
+                    if 'usedUnits' in text:
+                        self._bundle_total_volume_text = f"{text.get('usedUnits')}"
                     text = usage.get('text')[0]
                 else:
                     text = usage.get('text')
@@ -1135,6 +1151,9 @@ class SensorMobile(Entity):
                 
             if 'voice' in usage:
                 if shared:
+                    voice = bundleusage.get('voice')[0]
+                    if 'usedUnits' in voice:
+                        self._bundle_total_volume_voice = f"{voice.get('usedUnits')} {voice.get('unitType').lower()}"
                     voice = usage.get('voice')[0]
                 else:
                     voice = usage.get('voice')
@@ -1148,7 +1167,10 @@ class SensorMobile(Entity):
             if self._used_percentage_data:
                 self._state = self._used_percentage_data
             else:
-                self._state = self._used_percentage_voice
+                if self._bundle_used_percentage_data:
+                    self._state = self._bundle_used_percentage_data
+                else:
+                    self._state = self._used_percentage_voice
         
     async def async_will_remove_from_hass(self):
         """Clean up after entity before removal."""
@@ -1196,7 +1218,12 @@ class SensorMobile(Entity):
             "number" : self._number,
             "active" : self._active,
             "outofbundle" : self._outofbundle,
-            "mobileinternetonly" :  self._mobileinternetonly
+            "mobileinternetonly" : self._mobileinternetonly,
+            "bundle_total_volume_data" : self._bundle_total_volume_data,
+            "bundle_used_percentage_data" : self._bundle_used_percentage_data,
+            "bundle_remaining_volume_data" : self._bundle_remaining_volume_data,
+            "bundle_total_volume_text" : self._bundle_total_volume_text,
+            "bundle_total_volume_voice" : self._bundle_total_volume_voice
         }
 
     @property
