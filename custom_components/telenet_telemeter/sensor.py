@@ -331,7 +331,7 @@ class SensorInternet(Entity):
             else:
                 self._squeezed = False
             _LOGGER.debug(f"SensorInternet _wifree_usage: {self._wifree_usage}")
-            _LOGGER.debug(f"SensorInternet _peak_usage: {self._peak_usage}")53.91
+            _LOGGER.debug(f"SensorInternet _peak_usage: {self._peak_usage}")
             _LOGGER.debug(f"SensorInternet _offpeak_usage: {self._offpeak_usage}")
             _LOGGER.debug(f"SensorInternet _included_volume: {self._included_volume}")
             _LOGGER.debug(f"SensorInternet _extended_volume: {self._extended_volume}")
