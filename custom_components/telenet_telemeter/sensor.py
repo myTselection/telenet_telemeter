@@ -1094,19 +1094,19 @@ class SensorMobile(Entity):
 
         if mobileusage.get('included'):
             if 'data' in mobileusage.get('included'):
-                self._total_volume_data = f"{mobileusage.get('total').get('data').get('startUnits')} {mobileusage.get('total').get('data').get('unitType')}"
+                self._total_volume_data = f"{mobileusage.get('total').get('data').get('usedUnits')} {mobileusage.get('total').get('data').get('unitType')}"
                 self._used_percentage_data = mobileusage.get('total').get('data').get('usedPercentage')
                 self._remaining_volume_data = f"{mobileusage.get('total').get('data').get('remainingUnits')} {mobileusage.get('total').get('data').get('unitType')}"
                 _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_data} {self._used_percentage_data} {self._remaining_volume_data}")
                 
             if 'text' in mobileusage.get('included'):
-                self._total_volume_text = f"{mobileusage.get('total').get('text').get('startUnits')}"
+                self._total_volume_text = f"{mobileusage.get('total').get('text').get('usedUnits')}"
                 self._used_percentage_text = mobileusage.get('total').get('text').get('usedPercentage')
                 self._remaining_volume_text = f"{mobileusage.get('total').get('text').get('remainingUnits')}"
                 _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_text} {self._used_percentage_text} {self._remaining_volume_text}")
                 
             if 'voice' in mobileusage.get('included'):
-                self._total_volume_voice = f"{mobileusage.get('total').get('voice').get('startUnits')} {mobileusage.get('total').get('voice').get('unitType').lower()}"
+                self._total_volume_voice = f"{mobileusage.get('total').get('voice').get('usedUnits')} {mobileusage.get('total').get('voice').get('unitType').lower()}"
                 self._used_percentage_voice = mobileusage.get('total').get('voice').get('usedPercentage')
                 self._remaining_volume_voice = f"{mobileusage.get('total').get('voice').get('remainingUnits')} {mobileusage.get('total').get('voice').get('unitType').lower()}"
                 _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_voice} {self._used_percentage_voice} {self._remaining_volume_voice}")
