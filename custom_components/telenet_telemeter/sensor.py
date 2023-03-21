@@ -1107,6 +1107,7 @@ class SensorMobile(Entity):
         shared = False
         if mobileusage.get('included'):
             usage = mobileusage.get('total')
+            bundle = None
         elif mobileusage.get('shared'):
             usage = mobileusage.get('shared')
             bundle = bundleusage.get('shared')
@@ -1115,7 +1116,7 @@ class SensorMobile(Entity):
         if usage:
             if 'data' in usage:
                 if shared:
-                    data = bundleusage.get('data')[0]
+                    data = bundle.get('data')[0]
                     if 'usedUnits' in data:
                         self._bundle_total_volume_data = f"{data.get('usedUnits')} {data.get('unitType')}"
                     if 'usedPercentage' in data:
@@ -1135,7 +1136,7 @@ class SensorMobile(Entity):
                 
             if 'text' in usage:
                 if shared:
-                    text = bundleusage.get('text')[0]
+                    text = bundle.get('text')[0]
                     if 'usedUnits' in text:
                         self._bundle_total_volume_text = f"{text.get('usedUnits')}"
                     text = usage.get('text')[0]
@@ -1151,7 +1152,7 @@ class SensorMobile(Entity):
                 
             if 'voice' in usage:
                 if shared:
-                    voice = bundleusage.get('voice')[0]
+                    voice = bundle.get('voice')[0]
                     if 'usedUnits' in voice:
                         self._bundle_total_volume_voice = f"{voice.get('usedUnits')} {voice.get('unitType').lower()}"
                     voice = usage.get('voice')[0]
