@@ -155,7 +155,14 @@ class ComponentData:
                     planInfo = await self._hass.async_add_executor_job(lambda: self._session.planInfo())
                     productIdentifier = ""
                     for plan in planInfo:
-                        if plan.get('productType','').lower() == "internet":
+                        if productIdentifier != "":
+                            break
+                        if plan.get('productType','').lower() == "bundle":
+                            for product in plan.get('products'):
+                                if product.get('productType','').lower() == "internet":
+                                    productIdentifier = plan.get('identifier')
+                                    break
+                        elif plan.get('productType','').lower() == "internet":
                             productIdentifier = plan.get('identifier')
                             break
                     billcycles = await self._hass.async_add_executor_job(lambda: self._session.billCycles("internet",productIdentifier))
