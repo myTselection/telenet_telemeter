@@ -117,3 +117,9 @@ class TelenetSession(object):
         else:
             response = self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/mobile-service/v3/mobilesubscriptions/{bundleIdentifier}/usages?type=bundle","mobileBundleUsage bundle", None, 200)
         return response.json()
+
+    def apiVersion2(self):
+        response = self.callTelenet("https://api.prd.telenet.be/ocapi/public/api/product-service/v1/product-subscriptions?producttypes=PLAN","apiVersion2", None, None)
+        if response.status_code == 200:
+            return True
+        return False

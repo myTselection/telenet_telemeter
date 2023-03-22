@@ -17,7 +17,6 @@ from .utils import *
 _LOGGER = logging.getLogger(__name__)
 _TELENET_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.0%z"
 _TELENET_DATETIME_FORMAT_V2 = "%Y-%m-%d"
-TELENET_V2=True
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -29,7 +28,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 )
 
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=15)
-
 
 async def dry_setup(hass, config_entry, async_add_devices):
     config = config_entry
@@ -69,7 +67,7 @@ async def dry_setup(hass, config_entry, async_add_devices):
         assert data_mobile._mobilemeter is not None
         # createa mobile sensor for each mobile subscription
         # for mobilenr in data_mobile._mobilemeter
-        if not TELENET_V2:
+        if not data_mobile._v2:
             mobileusage = data_mobile._mobilemeter.get('mobileusage')
             for idxproduct, product in enumerate(mobileusage):
                 _LOGGER.debug("enumarate mobileusage elements idx:" + str(idxproduct) + ", product: "+ str(product) + " " +  NAME)
@@ -142,6 +140,7 @@ class ComponentData:
         self._mobilemeter = None
         self._producturl = None
         self._product_details = None
+        self._v2 = None
         self._hass = hass
         
     # same as update, but without throttle to make sure init is always executed
@@ -153,8 +152,12 @@ class ComponentData:
         if self._session:
             await self._hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
             _LOGGER.debug("ComponentData init login completed")
+            if self._v2 is None:
+                self._v2 = await self._hass.async_add_executor_job(lambda: self._session.apiVersion2())
+                _LOGGER.debug(f"Telenet API Version 2? : {self._v2}")
+
             if self._internet:
-                if not TELENET_V2:
+                if not self._v2:
                     self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
                 else:
                     # try new backend structure
@@ -182,7 +185,7 @@ class ComponentData:
                 # mock data
                 # self._telemeter = 
 
-                if not TELENET_V2:
+                if not self._v2:
                     self._producturl = self._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('specurl') 
                     _LOGGER.debug(f"ComponentData init telemeter data: {self._telemeter}")
                 else:
@@ -195,7 +198,7 @@ class ComponentData:
                 assert self._product_details is not None
                 _LOGGER.debug(f"ComponentData init telemeter productdetails: {self._product_details}")
             if self._mobile:
-                if not TELENET_V2:
+                if not self._v2:
                     self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.mobile())
                 else:
                     self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("MOBILE"))
@@ -247,7 +250,7 @@ class SensorInternet(Entity):
 
     async def async_update(self):
         await self._data.update()
-        if not TELENET_V2:
+        if not self._data._v2:
             self._last_update =  self._data._telemeter.get('internetusage')[0].get('lastupdated')
             self._product = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype') 
             self._period_start_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
@@ -293,9 +296,9 @@ class SensorInternet(Entity):
             if productdetails.get('labelkey') == "spec.fixedinternet.speed.upload":
                 self._upload_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
         
-        if (not TELENET_V2 and self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (TELENET_V2 and self._data._telemeter and self._data._telemeter.get('internet').get('peakUsage') is None):
+        if (not self._data._v2 and self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (self._data._v2 and self._data._telemeter and self._data._telemeter.get('internet').get('peakUsage') is None):
             #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
-            if not TELENET_V2:
+            if not self._data._v2:
                 self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
                 self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
                 self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
@@ -306,7 +309,7 @@ class SensorInternet(Entity):
 
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
-                if not TELENET_V2:
+                if not self._data._v2:
                     self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage ) / ( self._included_volume + self._extended_volume)),2)
                 else:
                     self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage ) / ( (self._included_volume/1024/1024) + self._extended_volume)),2)
@@ -318,7 +321,7 @@ class SensorInternet(Entity):
             
         else:
             #when peak indication is available, only use peak + wifree in total used counter, as offpeak is not attributed
-            if not TELENET_V2:
+            if not self._data._v2:
                 self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
                 self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
                 self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
@@ -329,7 +332,7 @@ class SensorInternet(Entity):
                 self._offpeak_usage = self._data._telemeter.get('internet').get('totalUsage').get('units') - self._data._telemeter.get('internet').get('peakUsage').get('usedUnits')
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
-                if not TELENET_V2:
+                if not self._data._v2:
                     self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),2)
                 else:
                     self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( (self._included_volume/1024/1024) + self._extended_volume)),2)
@@ -452,7 +455,7 @@ class SensorPeak(BinarySensorEntity):
 
     async def async_update(self):
         await self._data.update()
-        if not TELENET_V2:
+        if not self._data._v2:
             self._last_update =  self._data._telemeter.get('internetusage')[0].get('lastupdated')
             self._product = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype')  
             self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume') 
@@ -471,9 +474,9 @@ class SensorPeak(BinarySensorEntity):
                 self._upload_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
                 
                 
-        if (not TELENET_V2 and self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (TELENET_V2 and self._data._telemeter and self._data._telemeter.get('internet').get('peakUsage') is None):
+        if (not self._data._v2 and self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (self._data._v2 and self._data._telemeter and self._data._telemeter.get('internet').get('peakUsage') is None):
             #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
-            if not TELENET_V2:
+            if not self._data._v2:
                 self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
                 self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
                 self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
@@ -521,7 +524,7 @@ class SensorPeak(BinarySensorEntity):
             #peak rules: https://www2.telenet.be/nl/klantenservice/wat-zijn-de-piek-en-daluren-bij-een-abonnement-met-onbeperkt-surfen/
             # https://www2.telenet.be/nl/klantenservice/wat-is-onbeperkt-surfen/
             
-            if not TELENET_V2:
+            if not self._data._v2:
                 self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
                 self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
                 self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
@@ -653,7 +656,7 @@ class ComponentMobileShared(Entity):
         await self._data.update()
         _LOGGER.debug(f"mobilemeter ComponentMobileShared productid: {self._productid}")
         
-        if not TELENET_V2:
+        if not self._data._v2:
             mobileusage = self._data._mobilemeter.get('mobileusage')
             productdetails = mobileusage[self._productid]
             
