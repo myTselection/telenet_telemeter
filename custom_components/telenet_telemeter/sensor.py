@@ -159,6 +159,7 @@ class ComponentData:
             if self._internet:
                 if not self._v2:
                     self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
+                    self._telemeter['productIdentifier'] = self._data._telemeter.get('internetusage')[0].get('businessidentifier')
                 else:
                     # try new backend structure
                     planInfo = await self._hass.async_add_executor_job(lambda: self._session.planInfo())
