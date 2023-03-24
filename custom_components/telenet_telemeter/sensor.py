@@ -297,8 +297,9 @@ class SensorInternet(Entity):
             if productdetails.get('labelkey') == "spec.fixedinternet.speed.upload":
                 self._upload_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
         
-        if (not self._data._v2 and self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (self._data._v2 and self._data._telemeter and self._data._telemeter.get('internet').get('peakUsage') is None):
+        if (not self._data._v2 and self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (self._data._v2 and self._data._telemeter and self._data._telemeter.get('internet').get('category') == 'CAP'):
             #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
+            #CAPPED subscription (not unlimited)
             if not self._data._v2:
                 self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
                 self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
@@ -321,6 +322,7 @@ class SensorInternet(Entity):
                 self._squeezed = False
             
         else:
+            #Unlimited FUP subscription, not capped
             #when peak indication is available, only use peak + wifree in total used counter, as offpeak is not attributed
             if not self._data._v2:
                 self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
@@ -475,7 +477,7 @@ class SensorPeak(BinarySensorEntity):
                 self._upload_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
                 
                 
-        if (not self._data._v2 and self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (self._data._v2 and self._data._telemeter and self._data._telemeter.get('internet').get('peakUsage') is None):
+        if (not self._data._v2 and self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (self._data._v2 and self._data._telemeter and self._data._telemeter.get('internet').get('category') == 'CAP'):
             #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
             if not self._data._v2:
                 self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
