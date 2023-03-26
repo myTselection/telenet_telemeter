@@ -154,7 +154,7 @@ class ComponentData:
             _LOGGER.debug("ComponentData init login completed")
             if self._v2 is None:
                 self._v2 = await self._hass.async_add_executor_job(lambda: self._session.apiVersion2())
-                _LOGGER.debug(f"Telenet API Version 2? : {self._v2}")
+                _LOGGER.info(f"Telenet API Version 2? : {self._v2}")
 
             if self._internet:
                 if not self._v2:
