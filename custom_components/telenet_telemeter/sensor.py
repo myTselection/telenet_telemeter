@@ -470,7 +470,7 @@ class SensorPeak(BinarySensorEntity):
         
         _LOGGER.debug(f"specifications: {self._data._product_details.get('product').get('services')[0].get('specifications')}")
         for productdetails in self._data._product_details.get('product').get('services')[0].get('specifications'):
-            _LOGGER.debug(f"productdetails: {productdetails}")
+            _LOGGER.debug(f"SensorPeak productdetails: {productdetails}")
             if productdetails.get('labelkey') == "spec.fixedinternet.speed.download":
                 self._download_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
             if productdetails.get('labelkey') == "spec.fixedinternet.speed.upload":
