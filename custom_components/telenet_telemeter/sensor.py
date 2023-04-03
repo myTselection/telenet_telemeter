@@ -488,13 +488,35 @@ class SensorPeak(BinarySensorEntity):
             self._extended_volume =  0 #TODO unclear if available
         self._servicecategory = self._data._product_details.get('product').get('characteristics').get('service_category')
         
-        _LOGGER.debug(f"specifications: {self._data._product_details.get('product').get('services')[0].get('specifications')}")
-        for productdetails in self._data._product_details.get('product').get('services')[0].get('specifications'):
-            _LOGGER.debug(f"SensorPeak productdetails: {productdetails}")
-            if productdetails.get('labelkey') == "spec.fixedinternet.speed.download":
-                self._download_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
-            if productdetails.get('labelkey') == "spec.fixedinternet.speed.upload":
-                self._upload_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
+
+        # _LOGGER.debug(f"SensorInternet specifications: {self._data._product_details.get('product').get('services')[0].get('specifications')}")
+        for servicetype in self._data._product_details.get('product').get('services'):
+            if servicetype.get('servicetype') == 'FIXED_INTERNET':
+                for productdetails in servicetype.get('specifications'):
+                    _LOGGER.debug(f"SensorInternet productdetails: {productdetails}")
+                    if productdetails.get('labelkey') == "spec.fixedinternet.speed.download":
+                        self._download_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
+                    if productdetails.get('labelkey') == "spec.fixedinternet.speed.upload":
+                        self._upload_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
+                break
+            
+            
+        #original way to get included volume, but now getting out of product details to get FUP limits
+        # self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
+        if type(self._data._product_details.get('product').get('characteristics').get('service_category_limit')) == dict:
+            self._included_volume = int((self._data._product_details.get('product').get('characteristics').get('service_category_limit').get('value'))) * 1024 * 1024
+        elif type(self._data._product_details.get('product').get('characteristics').get('elementarycharacteristics')) == list:
+            for elem in self._data._product_details.get('product').get('characteristics').get('elementarycharacteristics'):
+                if elem.get("key") == "internet_usage_limit":
+                    self._included_volume = int(elem.get('value')) * 1024 * 1024
+                    break
+        else:
+            #Max volume not found in product details, so retrieve value out of telemeter
+            if not self._data._v2:
+                self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
+            else:
+                self._included_volume = self._data._telemeter.get('internet').get('allocatedUsage').get('units') * 1024 * 1024
+        self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
                 
                 
         if (not self._data._v2 and self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (self._data._v2 and self._data._telemeter and self._data._telemeter.get('internet').get('category') == 'CAP'):
@@ -512,7 +534,10 @@ class SensorPeak(BinarySensorEntity):
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
                 self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage ) / ( self._included_volume + self._extended_volume)),1)
-            
+            else:
+                if self._data._v2: 
+                    self._used_percentage = float(self._data._telemeter.get('internet').get('usedPercentage'))
+                    
             if self._used_percentage >= 100:
                 self._download_speed = f"1 Mbps"
                 self._upload_speed = f"256 Kbps"
@@ -556,23 +581,14 @@ class SensorPeak(BinarySensorEntity):
                 self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
                 self._peak_usage = self._data._telemeter.get('internet').get('peakUsage').get('usedUnits')
                 self._offpeak_usage = self._data._telemeter.get('internet').get('totalUsage').get('units') - self._data._telemeter.get('internet').get('peakUsage').get('usedUnits')
-            
-            
-            #original way to get included volume, but now getting out of product details to get FUP limits
-            # self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
-            
-            if type(self._data._product_details.get('product').get('characteristics').get('service_category_limit')) == dict:
-                self._included_volume = int((self._data._product_details.get('product').get('characteristics').get('service_category_limit').get('value'))) * 1024 * 1024  
-            else:
-                for elem in self._data._product_details.get('product').get('characteristics').get('elementarycharacteristics'):
-                    if elem.get("key") == "internet_usage_limit":
-                        self._included_volume = int(elem.get('value')) * 1024 * 1024      
-            self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
-            
+                     
             
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
                 self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
+            else:
+                if self._data._v2: 
+                    self._used_percentage = float(self._data._telemeter.get('internet').get('usedPercentage'))
             if not self._data._telemeter and self._used_percentage >= 100:
                 self._squeezed = True
             else:
