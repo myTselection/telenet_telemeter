@@ -413,7 +413,7 @@ class SensorInternet(Entity):
             "extendedvolume_usage": self._extendedvolume_usage,
             "peak_usage": self._peak_usage, 
             "offpeak_usage": self._offpeak_usage,
-            "sequeezed": self._squeezed,
+            "squeezed": self._squeezed,
             "period_start": self._period_start_date,
             "period_end": self._period_end_date,
             "period_days_left": self._period_left,
@@ -651,7 +651,7 @@ class SensorPeak(BinarySensorEntity):
             "wifree_usage": self._wifree_usage,
             "peak_usage": self._peak_usage, 
             "offpeak_usage": self._offpeak_usage,
-            "sequeezed": self._squeezed,
+            "squeezed": self._squeezed,
             "servicecategory": self._servicecategory,
             "download_speed": self._download_speed,
             "upload_speed": self._upload_speed
