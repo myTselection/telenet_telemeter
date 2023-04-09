@@ -25,6 +25,8 @@ Based on source code of [Killian Meersman](https://github.com/KillianMeersman/te
 - Provide Telenet username and password
 - A sensor Telenet Telemeter should become available with the percentage of data left and extra attributes on usage and period start/end etc.
   - For users having a FUP 'unlimited' data, your actual 'peak' data usage versus the [service limit](https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-telenet-netwerkbeheer.html) (eg 750GB/3TB) will be used in order to calculate your overal 'usage' status, so you can denote if you are close to be switched into a limited/smallband mode.
+  - Unlimited (FUP) users should use 'peak_usage' and 'offpeak_usage' attributes, limited (CAP) users should use 'includedvolume_usage' attribute.
+  - Depending of new Telenet backend or not, the value can be in GB or in bytes, so might be needed to divide or multipled twice by 1024 
   - A `telenet_telemeter_peak` sensor is available indicating if peak time is currently active or not and if all allowed peaktime data has been used, the calculated spead limits will be shown as an attribute
 - If 'Mobile' has been selected during setup of the integration, a Telenet telemeter mobile sensor will be created for each mobile subscription. For now, the sensor state will show the usage (%) state of the data part of each subscription. But details of data/text/voice volume and usage are added as attributes on the sensor, so this information is available too. 
 
