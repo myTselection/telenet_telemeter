@@ -55,13 +55,13 @@ cards:
 
       ### Total used:
       {{state_attr('sensor.telenet_telemeter','used_percentage')}}%
-      ({{(((state_attr('sensor.telenet_telemeter','peak_usage') or 0) +(state_attr('sensor.telenet_telemeter','includedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','extendedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','wifree_usage') or 0))/1024/1024)|int}}GB
+      ({{((((state_attr('sensor.telenet_telemeter','peak_usage')*1024*1024) or 0) +(state_attr('sensor.telenet_telemeter','includedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','extendedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','wifree_usage') or 0))/1024/1024)|int}}GB
       of {{state_attr('sensor.telenet_telemeter','total_volume')|int}}GB)
 
       #### {{state_attr('sensor.telenet_telemeter','period_days_left')|int}}
       days remaining
       ({{state_attr('sensor.telenet_telemeter','total_volume')|int -
-      (((state_attr('sensor.telenet_telemeter','peak_usage') or 0)+(state_attr('sensor.telenet_telemeter','includedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','extendedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','wifree_usage') or 0))/1024/1024)|int}}GB)
+      ((((state_attr('sensor.telenet_telemeter','peak_usage')*1024*1024) or 0)+(state_attr('sensor.telenet_telemeter','includedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','extendedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','wifree_usage') or 0))/1024/1024)|int}}GB)
 
 
       Period {{state_attr('sensor.telenet_telemeter','period_start') |
@@ -148,7 +148,7 @@ cards:
           duration: 1d
         show:
           datalabels: true
-        transform: return x / 1024 / 1024;
+        transform: return x;
       - entity: sensor.telenet_telemeter_peak
         attribute: offpeak_usage
         name: Offpeak
@@ -159,7 +159,7 @@ cards:
           duration: 1d
         show:
           datalabels: true
-        transform: return x / 1024 / 1024;
+        transform: return x;
 ```
 
 </details>
