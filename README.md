@@ -45,7 +45,7 @@ If you would encounter some issues with this custom component, you can enable ex
 logger:
   default: info
   logs:
-     cusomt_components.telenet_telemeter: debug
+     custom_components.telenet_telemeter: debug
 ```
 
 ## Example usage:
