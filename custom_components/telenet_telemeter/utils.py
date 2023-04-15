@@ -102,6 +102,10 @@ class TelenetSession(object):
     def productUsage(self, productType, productIdentifier,startDate, endDate):
         response = self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/product-service/v1/products/{productType}/{productIdentifier}/usage?fromDate={startDate}&toDate={endDate}","productUsage", None, 200)
         return response.json()
+    
+    def productDailyUsage(self, productType, productIdentifier,startDate, endDate):
+        response = self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/product-service/v1/products/{productType}/{productIdentifier}/dailyusage?billcycle=CURRENT&fromDate={startDate}&toDate={endDate}","productUsage", None, 200)
+        return response.json()
 
     def productSubscriptions(self, productType):
         response = self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/product-service/v1/product-subscriptions?producttypes={productType}","productSubscriptions", None, 200)

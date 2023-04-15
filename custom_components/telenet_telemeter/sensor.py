@@ -175,13 +175,15 @@ class ComponentData:
                         elif plan.get('productType','').lower() == "internet":
                             productIdentifier = plan.get('identifier')
                             break
-                    billcycles = await self._hass.async_add_executor_job(lambda: self._session.billCycles("internet",productIdentifier))
+                    billcycles = await self._hass.async_add_executor_job(lambda: self._session.billCycles("internet", productIdentifier))
                     startDate = billcycles.get('billCycles')[0].get("startDate")
                     endDate = billcycles.get('billCycles')[0].get("endDate")
-                    self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.productUsage("internet",productIdentifier, startDate,endDate))
+                    self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.productUsage("internet", productIdentifier, startDate,endDate))
                     self._telemeter['startDate'] = startDate
                     self._telemeter['endDate'] = endDate
                     self._telemeter['productIdentifier'] = productIdentifier
+                    dailyUsage = await self._hass.async_add_executor_job(lambda: self._session.productDailyUsage("internet", productIdentifier, startDate,endDate))
+                    self._telemeter['internetUsage'] = dailyUsage.get('internetUsage')
                     
                 # mock data
                 # self._telemeter = 
@@ -347,8 +349,9 @@ class SensorInternet(Entity):
                 self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
             else:
                 self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
-                self._peak_usage = self._data._telemeter.get('internet').get('peakUsage').get('usedUnits')
-                self._offpeak_usage = self._data._telemeter.get('internet').get('totalUsage').get('units') - self._data._telemeter.get('internet').get('peakUsage').get('usedUnits')
+                self._peak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('peak'),1)
+                self._includedvolume_usage = self._peak_usage
+                self._offpeak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('offPeak'),1)
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
                 if not self._data._v2:
@@ -579,9 +582,9 @@ class SensorPeak(BinarySensorEntity):
                 self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
             else:
                 self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
-                self._peak_usage = self._data._telemeter.get('internet').get('peakUsage').get('usedUnits')
-                self._offpeak_usage = self._data._telemeter.get('internet').get('totalUsage').get('units') - self._data._telemeter.get('internet').get('peakUsage').get('usedUnits')
-                     
+                self._peak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('peak'),1)
+                self._includedvolume_usage = self._peak_usage
+                self._offpeak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('offPeak'),1)
             
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
