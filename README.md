@@ -23,11 +23,11 @@ Based on source code of [Killian Meersman](https://github.com/KillianMeersman/te
 - Restart Home Assistant
 - Add 'Telenet Telemeter' integration via HA Settings > 'Devices and Services' > 'Integrations'
 - Provide Telenet username and password
-- A sensor Telenet Telemeter should become available with the percentage of data left and extra attributes on usage and period start/end etc.
+- A sensor `sensor.telenet_telemeter_internet_[w123456]` Telenet Telemeter should become available with the percentage of data left and extra attributes on usage and period start/end etc.
   - For users having a FUP 'unlimited' data, your actual 'peak' data usage versus the [service limit](https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-telenet-netwerkbeheer.html) (eg 750GB/3TB) will be used in order to calculate your overal 'usage' status, so you can denote if you are close to be switched into a limited/smallband mode.
-  - Unlimited (FUP) users should use 'peak_usage' and 'offpeak_usage' attributes, limited (CAP) users should use 'includedvolume_usage' attribute.
-  - Depending of new Telenet backend or not, the value can be in GB or in bytes, so might be needed to divide or multipled twice by 1024 
-  - A `telenet_telemeter_peak` sensor is available indicating if peak time is currently active or not and if all allowed peaktime data has been used, the calculated spead limits will be shown as an attribute
+  - Unlimited (FUP) users should use `peak_usage` and `offpeak_usage` attributes, limited (CAP) users should use `includedvolume_usage` attribute.
+  - Depending of new Telenet backend, the value can be in GB or in bytes, so might be needed to divide or multipled twice by 1024 
+  - A `sensor.telenet_telemeter_peak_[w123456]` sensor is available indicating if peak time is currently active or not and if all allowed peaktime data has been used, the calculated spead limits will be shown as an attribute
 - If 'Mobile' has been selected during setup of the integration, a Telenet telemeter mobile sensor will be created for each mobile subscription. For now, the sensor state will show the usage (%) state of the data part of each subscription. But details of data/text/voice volume and usage are added as attributes on the sensor, so this information is available too. 
 
 ## Status
@@ -64,28 +64,28 @@ cards:
       width="30"/>&nbsp;&nbsp;Telenet Telemeter
 
       ### Total used:
-      {{state_attr('sensor.telenet_telemeter','used_percentage')}}%
-      ({{((((state_attr('sensor.telenet_telemeter','peak_usage')*1024*1024) or 0) +(state_attr('sensor.telenet_telemeter','includedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','extendedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','wifree_usage') or 0))/1024/1024)|int}}GB
-      of {{state_attr('sensor.telenet_telemeter','total_volume')|int}}GB)
+      {{state_attr('sensor.telenet_telemeter_internet_w123456','used_percentage')}}%
+      ({{((((state_attr('sensor.telenet_telemeter_internet_w123456','peak_usage')*1024*1024) or 0) +(state_attr('sensor.telenet_telemeter_internet_w123456','includedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter_internet_w123456','extendedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter_internet_w123456','wifree_usage') or 0))/1024/1024)|int}}GB
+      of {{state_attr('sensor.telenet_telemeter_internet_w123456','total_volume')|int}}GB)
 
-      #### {{state_attr('sensor.telenet_telemeter','period_days_left')|int}}
+      #### {{state_attr('sensor.telenet_telemeter_internet_w123456','period_days_left')|int}}
       days remaining
-      ({{state_attr('sensor.telenet_telemeter','total_volume')|int -
-      ((((state_attr('sensor.telenet_telemeter','peak_usage')*1024*1024) or 0)+(state_attr('sensor.telenet_telemeter','includedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','extendedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter','wifree_usage') or 0))/1024/1024)|int}}GB)
+      ({{state_attr('sensor.telenet_telemeter_internet_w123456','total_volume')|int -
+      ((((state_attr('sensor.telenet_telemeter_internet_w123456','peak_usage')*1024*1024) or 0)+(state_attr('sensor.telenet_telemeter_internet_w123456','includedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter_internet_w123456','extendedvolume_usage') or 0)+(state_attr('sensor.telenet_telemeter_internet_w123456','wifree_usage') or 0))/1024/1024)|int}}GB)
 
 
-      Period {{state_attr('sensor.telenet_telemeter','period_start') |
+      Period {{state_attr('sensor.telenet_telemeter_internet_w123456','period_start') |
       as_timestamp | timestamp_custom("%d-%m-%Y")}} -
-      {{state_attr('sensor.telenet_telemeter','period_end') | as_timestamp |
+      {{state_attr('sensor.telenet_telemeter_internet_w123456','period_end') | as_timestamp |
       timestamp_custom("%d-%m-%Y")}} 
 
       Wi-Free verbruik:
-      {{(state_attr('sensor.telenet_telemeter','wifree_usage')/1024 )| int}}MB
+      {{(state_attr('sensor.telenet_telemeter_internet_w123456','wifree_usage')/1024 )| int}}MB
 
-      {{state_attr('sensor.telenet_telemeter','product')}}: {{state_attr('sensor.telenet_telemeter','download_speed')}}/{{state_attr('sensor.telenet_telemeter','upload_speed')}} (Peak {{states('sensor.telenet_telemeter_peak')}}, {{state_attr('sensor.telenet_telemeter_peak','download_speed')}})
+      {{state_attr('sensor.telenet_telemeter_internet_w123456','product')}}: {{state_attr('sensor.telenet_telemeter_internet_w123456','download_speed')}}/{{state_attr('sensor.telenet_telemeter_internet_w123456','upload_speed')}} (Peak {{states('sensor.telenet_telemeter_peak_w123456')}}, {{state_attr('sensor.telenet_telemeter_peak_w123456','download_speed')}})
 
       Laatste update:
-      *{{state_attr('sensor.telenet_telemeter','last update') | as_timestamp |
+      *{{state_attr('sensor.telenet_telemeter_internet_w123456','last update') | as_timestamp |
       timestamp_custom("%d-%m-%Y %H:%M")}}*
   - type: custom:dual-gauge-card
     title: false
@@ -94,7 +94,7 @@ cards:
     shadeInner: true
     cardwidth: 350
     outer:
-      entity: sensor.telenet_telemeter
+      entity: sensor.telenet_telemeter_internet_w123456
       attribute: used_percentage
       label: used
       min: 0
@@ -108,7 +108,7 @@ cards:
         - color: var(--label-badge-red)
           value: 80
     inner:
-      entity: sensor.telenet_telemeter
+      entity: sensor.telenet_telemeter_internet_w123456
       label: period
       attribute: period_used_percentage
       min: 0
@@ -116,7 +116,7 @@ cards:
       unit: '%'
   - type: history-graph
     entities:
-      - entity: sensor.telenet_telemeter
+      - entity: sensor.telenet_telemeter_internet_w123456
     hours_to_show: 500
     refresh_interval: 60
 ```
@@ -147,7 +147,7 @@ cards:
       show_states: true
       colorize_states: true
     series:
-      - entity: sensor.telenet_telemeter_peak
+      - entity: sensor.telenet_telemeter_peak_w123456
         attribute: peak_usage
         name: Peak
         unit: ' GB'
@@ -159,7 +159,7 @@ cards:
         show:
           datalabels: true
         transform: return x;
-      - entity: sensor.telenet_telemeter_peak
+      - entity: sensor.telenet_telemeter_peak_w123456
         attribute: offpeak_usage
         name: Offpeak
         unit: ' GB'
@@ -186,7 +186,7 @@ binary_sensor:
       telenet_warning:
         friendly_name: Telenet Warning
         value_template: >
-           {{state_attr('sensor.telenet_telemeter','used_percentage') > state_attr('sensor.telenet_telemeter','period_used_percentage') and state_attr('sensor.telenet_telemeter','used_percentage') > 70}}
+           {{state_attr('sensor.telenet_telemeter_internet_w123456','used_percentage') > state_attr('sensor.telenet_telemeter_internet_w123456','period_used_percentage') and state_attr('sensor.telenet_telemeter_internet_w123456','used_percentage') > 70}}
 ```
 </details>
 
@@ -202,9 +202,9 @@ card:
   type: markdown
   content: >-
     Total used:
-    **{{state_attr('sensor.telenet_telemeter','used_percentage')}}%**
-    ({{(((state_attr('sensor.telenet_telemeter','includedvolume_usage') or 0) + (state_attr('sensor.telenet_telemeter','extendedvolume_usage') or 0) + (state_attr('sensor.telenet_telemeter','wifree_usage') or 0) + (state_attr('sensor.telenet_telemeter','peak_usage') or 0))/1024/1024)|int}}GB
-    of {{state_attr('sensor.telenet_telemeter','total_volume')|int}}GB)
-    {{state_attr('sensor.telenet_telemeter','period_days_left')|int}} days remaining
+    **{{state_attr('sensor.telenet_telemeter_internet_w123456','used_percentage')}}%**
+    ({{(((state_attr('sensor.telenet_telemeter_internet_w123456','includedvolume_usage') or 0) + (state_attr('sensor.telenet_telemeter_internet_w123456','extendedvolume_usage') or 0) + (state_attr('sensor.telenet_telemeter_internet_w123456','wifree_usage') or 0) + (state_attr('sensor.telenet_telemeter_internet_w123456','peak_usage') or 0))/1024/1024)|int}}GB
+    of {{state_attr('sensor.telenet_telemeter_internet_w123456','total_volume')|int}}GB)
+    {{state_attr('sensor.telenet_telemeter_internet_w123456','period_days_left')|int}} days remaining
 ```
 </details>
