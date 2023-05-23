@@ -6,7 +6,7 @@
 [![GitHub last commit](https://img.shields.io/github/last-commit/myTselection/telenet_telemeter.svg)](https://github.com/myTselection/telenet_telemeter/commits/main)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/myTselection/telenet_telemeter.svg)](https://github.com/myTselection/telenet_telemeter/graphs/commit-activity)
 
-# Telenet Telemeter
+# Telenet Telemeter Home Assistant integration
 [Telenet Telemeter](https://www2.telenet.be/nl/business/klantenservice/raadpleeg-uw-internetverbruik/) Home Assistant custom component. This custom component has been built from the ground up to bring your Telenet internet and mobile phone usage details into Home Assistant to help you towards a better follow up on your usage information. This integration is built against the public website provided by Telenet Belgium and has not been tested for any other countries.
 
 This integration is in no way affiliated with Telenet Belgium.
