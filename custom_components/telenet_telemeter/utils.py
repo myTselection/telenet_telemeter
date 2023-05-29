@@ -49,10 +49,10 @@ class TelenetSession(object):
     def callTelenet(self, url, caller = "Not set", data = None, expectedStatusCode = "200", printResponse = False):
         if data == None:
             _LOGGER.debug(f"[{caller}] Calling GET {url}")
-            response = self.s.get(url,timeout=10)
+            response = self.s.get(url,timeout=30)
         else:
             _LOGGER.debug(f"[{caller}] Calling POST {url}")
-            response = self.s.post(url,data,timeout=10)
+            response = self.s.post(url,data,timeout=30)
         _LOGGER.debug(f"[{caller}] http status code = {response.status_code} (expecting {expectedStatusCode})")
         if printResponse:
             _LOGGER.debug(f"[{caller}] Response:\n{response.text}")
