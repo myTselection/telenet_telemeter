@@ -80,7 +80,7 @@ cards:
       timestamp_custom("%d-%m-%Y")}} 
 
       Wi-Free verbruik:
-      {{(state_attr('sensor.telenet_telemeter_internet_w123456','wifree_usage')/1024 )| int}}MB
+      {{(state_attr('sensor.telenet_telemeter_internet_w123456','wifree_usage')*1024 )| int}}MB
 
       {{state_attr('sensor.telenet_telemeter_internet_w123456','product')}}: {{state_attr('sensor.telenet_telemeter_internet_w123456','download_speed')}}/{{state_attr('sensor.telenet_telemeter_internet_w123456','upload_speed')}} (Peak {{states('sensor.telenet_telemeter_peak_w123456')}}, {{state_attr('sensor.telenet_telemeter_peak_w123456','download_speed')}})
 

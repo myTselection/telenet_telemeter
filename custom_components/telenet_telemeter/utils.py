@@ -43,8 +43,9 @@ def check_settings(config, hass):
 class TelenetSession(object):
     def __init__(self):
         self.s = requests.Session()
-        self.s.headers["User-Agent"] = "TelemeterPython/3"
-        self.s.headers["x-alt-referer"] = "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice"
+        self.s.headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+        # self.s.headers["x-alt-referer"] = "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice"
+        self.s.headers["x-alt-referer"] = "https://www2.telenet.be/residential/nl/mijn-telenet"
 
     def callTelenet(self, url, caller = "Not set", data = None, expectedStatusCode = "200", printResponse = False):
         if data == None:
@@ -68,6 +69,7 @@ class TelenetSession(object):
             return
         assert response.status_code == 401
         # Fetch state & nonce
+        _LOGGER.debug(f"loging response to split state, nonce: {response.text}")
         state, nonce = response.text.split(",", maxsplit=2)
         # Log in
         self.callTelenet(f'https://login.prd.telenet.be/openid/oauth/authorize?client_id=ocapi&response_type=code&claims={{"id_token":{{"http://telenet.be/claims/roles":null,"http://telenet.be/claims/licenses":null}}}}&lang=nl&state={state}&nonce={nonce}&prompt=login',"login", None, None)
