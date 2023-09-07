@@ -47,13 +47,17 @@ class TelenetSession(object):
         # self.s.headers["x-alt-referer"] = "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice"
         self.s.headers["x-alt-referer"] = "https://www2.telenet.be/residential/nl/mijn-telenet"
 
-    def callTelenet(self, url, caller = "Not set", data = None, expectedStatusCode = "200", printResponse = False):
-        if data == None:
-            _LOGGER.debug(f"[{caller}] Calling GET {url}")
-            response = self.s.get(url,timeout=30)
+    def callTelenet(self, url, caller = "Not set", data = None, expectedStatusCode = "200", printResponse = False, patch = False):
+        if patch:
+            _LOGGER.debug(f"[{caller}] Calling PATCH {url}")
+            response = self.s.patch(url,data,timeout=30)
         else:
-            _LOGGER.debug(f"[{caller}] Calling POST {url}")
-            response = self.s.post(url,data,timeout=30)
+            if data == None:
+                _LOGGER.debug(f"[{caller}] Calling GET {url}")
+                response = self.s.get(url,timeout=30)
+            else:
+                _LOGGER.debug(f"[{caller}] Calling POST {url}")
+                response = self.s.post(url,data,timeout=30)
         _LOGGER.debug(f"[{caller}] http status code = {response.status_code} (expecting {expectedStatusCode})")
         if printResponse:
             _LOGGER.debug(f"[{caller}] Response:\n{response.text}")
@@ -80,6 +84,10 @@ class TelenetSession(object):
     def userdetails(self):
         response = self.callTelenet("https://api.prd.telenet.be/ocapi/oauth/userdetails","userdetails", None, 200)
         return response.json()
+    
+    def customerdetails(self):
+        response = self.callTelenet("https://api.prd.telenet.be/ocapi/public/api/customer-service/v1/customers","customerdetails", None, 200)
+        return response.json()
 
     def telemeter(self):
         response = self.callTelenet("https://api.prd.telenet.be/ocapi/public/?p=internetusage,internetusagereminder","telemeter", None, 200)
@@ -88,7 +96,29 @@ class TelenetSession(object):
     def telemeter_product_details(self, url):
         response = self.callTelenet(url,"telemeter_product_details",None, 200)
         return response.json()
+
+    def modemdetails(self, productIdentifier):
+        response = self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/resource-service/v1/modems?productIdentifier={productIdentifier}","modemdetails", None, 200)
+        return response.json()
+    
+    def wifidetails(self, productIdentifier, modemMac):
+        response = self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/resource-service/v1/modems/{modemMac}/wireless-settings?withmetadata=true&withwirelessservice=true&productidentifier={productIdentifier}","wifidetails", None, 200)
+        return response.json()
+    
+    def switchWifi(self, homeSpotEnabled, wirelessEnabled, productIdentifier, modemMac, locationId):
+        if homeSpotEnabled:
+            homeSpotEnabled = "Yes"
+        else:
+            homeSpotEnabled = "No"
         
+        if wirelessEnabled:
+            wirelessEnabled = "Yes"
+        else:
+            wirelessEnabled = "No"
+        data = {"productIdentifier":productIdentifier,"homeSpotEnabled":homeSpotEnabled,"wirelessEnabled":wirelessEnabled,"locationId":locationId,"patchOperations":[{"op":"replace","path":"/wirelessInterfaces/2.4GHZ/ssids/PRIMARY/active","value":True},{"op":"replace","path":"/wirelessInterfaces/5GHZ/ssids/PRIMARY/active","value":True}]}
+        response = self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/resource-service/v1/modems/{modemMac}/wireless-settings?withmetadata=true&withwirelessservice=true&productidentifier={productIdentifier}","wifidetails", data, 200, True)
+        return response.json()
+    
     def mobile(self):
         response = self.callTelenet("https://api.prd.telenet.be/ocapi/public/?p=mobileusage","mobile", None, 200)
         return response.json()
