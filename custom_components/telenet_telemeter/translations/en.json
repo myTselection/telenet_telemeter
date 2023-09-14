@@ -51,5 +51,27 @@
             "missing data options handler": "Option handler failed",
             "no_valid_settings": "No valid settings, provide username, password, internet & mobile in ha config."
         }
+    },
+    "services": {
+        "switch_wifi": {
+            "name": "switch_wifi",
+            "description": "Enable or disable the wifi.",
+            "fields": {
+                "enable": {
+                    "name": "enable",
+                    "description": "Yes to enable wifi, No to disable wifi"
+                }
+            }
+        },
+        "switch_wifree": {
+            "name": "switch_wifree",
+            "description": "Enable or disable the wifree (open shared wifi network that can be used by other Telenet users too).",
+            "fields": {
+                "enable": {
+                    "name": "enable",
+                    "description": "Yes to enable wifree, No to disable wifree"
+                }
+            }
+        }
     }
 }
