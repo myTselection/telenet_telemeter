@@ -111,8 +111,8 @@ def register_services(hass, config_entry):
         if not v2:
             return
         
-        customerDetails = await hass.async_add_executor_job(lambda: session.customerdetails())
-        customerLocationId = customerDetails.get('customerLocations')[0].get('id')
+        # customerDetails = await hass.async_add_executor_job(lambda: session.customerdetails())
+        # customerLocationId = customerDetails.get('customerLocations')[0].get('id')
         
         internetProductDetails = await hass.async_add_executor_job(lambda: session.productSubscriptions("INTERNET"))
         internetProductIdentifier = internetProductDetails[0].get('identifier')
@@ -120,18 +120,42 @@ def register_services(hass, config_entry):
         modemDetails = await hass.async_add_executor_job(lambda: session.modemdetails(internetProductIdentifier))
         modemMac = modemDetails.get('mac')
 
+        productServiceDetails = await hass.async_add_executor_job(lambda: session.productService(internetProductIdentifier, "INTERNET"))
+        customerLocationId = productServiceDetails.get('locationId')
+        
+        for lineLevelProduct in productServiceDetails.get('lineLevelProducts',[]):
+            if lineLevelProduct.get('specurl'):
+                 urlDetails = await hass.async_add_executor_job(lambda: session.urldetails(lineLevelProduct.get('specurl')))
+
+        for option in productServiceDetails.get('options',[]):
+            if option.get('specurl'):
+                 urlDetails = await hass.async_add_executor_job(lambda: session.urldetails(option.get('specurl')))
+
         wifiDetails = await hass.async_add_executor_job(lambda: session.wifidetails(internetProductIdentifier, modemMac))
-        wifiEnabled = wifiDetails.get('wirelessEnabled')
+        # wifiEnabled = wifiDetails.get('wirelessEnabled')
+        wifiEnabled = wifiDetails.get("wirelessInterfaces")[0].get('active')
         wifreeEnabled = wifiDetails.get('homeSpotEnabled')
 
         if enableWifi is None:
             enableWifi = wifiEnabled
+        if enableWifi == "Yes":
+            enableWifi = True
+        else:
+            enableWifi = False
         if enableWifree is None:
             enableWifree = wifreeEnabled
-    
-        response  = await hass.async_add_executor_job(lambda: session.switchWifi(enableWifree, enableWifi, internetProductIdentifier, modemMac, customerLocationId))
 
-        _LOGGER.debug(f"{NAME} handle_switch_wifi switch executed, old state: wifiEnabled: {wifiEnabled}, wifreeEnabled: {wifreeEnabled}, new state: enableWifi: {enableWifi}, enableWifree: {enableWifree}, response: {response}")
+        # if wifiEnabled and enableWifi and wifreeEnabled == enableWifree:
+        #     _LOGGER.debug(f"no wifi change required: wifiEnabled: {wifiEnabled}, enableWifi: {enableWifi}, wifreeEnabled: {wifreeEnabled}, enableWifree: {enableWifree}")
+        #     return
+        # else:
+        _LOGGER.debug(f"wifi change required: wifiEnabled: {wifiEnabled}, enableWifi: {enableWifi}, wifreeEnabled: {wifreeEnabled}, enableWifree: {enableWifree}")
+
+    
+        await hass.async_add_executor_job(lambda: session.switchWifi(enableWifree, enableWifi, internetProductIdentifier, modemMac, customerLocationId))
+
+        _LOGGER.debug(f"{NAME} handle_switch_wifi switch executed, old state: wifiEnabled: {wifiEnabled}, wifreeEnabled: {wifreeEnabled}, new state: enableWifi: {enableWifi}, enableWifree: {enableWifree}")
+        return
         
     async def handle_switch_wifi(call):
         """Handle the service call."""
@@ -139,14 +163,18 @@ def register_services(hass, config_entry):
         enable = call.data.get('enable')
         if not(enable in ["Yes","No"]):
             return
+        _LOGGER.debug(f"handle_switch_wifi: enable : {enable}")
         await handle_switch_wireless(enable, None)
+        return
         
     async def handle_switch_wifree(call):
         """Handle the service call."""
         enable = call.data.get('enable')
         if not(enable in ["Yes","No"]):
             return
+        _LOGGER.debug(f"handle_switch_wifree: enable : {enable}")
         await handle_switch_wireless(None, enable)
+        return
 
 
     hass.services.async_register(DOMAIN, 'switch_wifi', handle_switch_wifi)
