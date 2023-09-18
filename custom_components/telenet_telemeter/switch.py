@@ -47,6 +47,7 @@ class ComponentSwitch():
         self._wifiState = False
         self._wifreeState = False
         self._session = TelenetSession()
+        self._update_required = False
 
     async def handle_switch_wireless(self, enableWifi, enableWifree):
         """Handle the service call."""
