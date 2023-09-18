@@ -82,15 +82,21 @@ class ComponentSwitch():
         # wifiEnabled = wifiDetails.get('wirelessEnabled')
         wifiEnabled = wifiDetails.get("wirelessInterfaces")[0].get('active')
         wifreeEnabled = wifiDetails.get('homeSpotEnabled')
+        _LOGGER.debug(f"wifidetails switch handle: {wifiDetails}")
 
         if enableWifi is None:
             enableWifi = wifiEnabled
-        if enableWifi == "Yes":
+        if enableWifi == True or enableWifi == "Yes":
             enableWifi = True
         else:
             enableWifi = False
         if enableWifree is None:
             enableWifree = wifreeEnabled
+        elif enableWifree:
+            enableWifree = "Yes"
+        else:
+            enableWifree = "No"
+
 
         # if wifiEnabled and enableWifi and wifreeEnabled == enableWifree:
         #     _LOGGER.debug(f"no wifi change required: wifiEnabled: {wifiEnabled}, enableWifi: {enableWifi}, wifreeEnabled: {wifreeEnabled}, enableWifree: {enableWifree}")
@@ -106,8 +112,9 @@ class ComponentSwitch():
         
         wifiDetails = await self._hass.async_add_executor_job(lambda: self._session.wifidetails(internetProductIdentifier, modemMac))
         # wifiEnabled = wifiDetails.get('wirelessEnabled')
-        self._wifiState = bool(wifiDetails.get("wirelessInterfaces")[0].get('active'))
-        self._wifreeState = (wifiDetails.get('homeSpotEnabled') == "Yes")
+        self._wifiState = enableWifi
+        self._wifreeState = (enableWifree == "Yes")
+        self._update_required = True
         return
     
     
@@ -143,16 +150,21 @@ class ComponentSwitch():
         
         wifiDetails = await self._hass.async_add_executor_job(lambda: self._session.wifidetails(internetProductIdentifier, modemMac))
         # wifiEnabled = wifiDetails.get('wirelessEnabled')
+        _LOGGER.debug(f"wifidetails switch update: {wifiDetails}")
         self._wifiState = bool(wifiDetails.get("wirelessInterfaces")[0].get('active'))
         self._wifreeState = (wifiDetails.get('homeSpotEnabled') == "Yes")
         return                
     
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def _update(self):
-        await self._forced_update()
+        await self.force_update()
 
     async def update(self):
-        await self._update()
+        if self._update_required:
+            # no throttle if update is required
+            await self.force_update()
+        else:
+            await self._update()
 
     async def turn_on_wifi(self):
         # response = await self.handle_switch_wireless(True, None)
@@ -180,15 +192,36 @@ class WifiSwitch(SwitchEntity):
         self._data = data
 
     @property
-    def name(self):
-        """Return the name of the switch."""
-        return f"{DOMAIN} Wifi"
+    def name(self) -> str:
+        return self.unique_id
     
     @property
-    async def is_on(self):
-        """Return true if switch is on."""
+    def icon(self) -> str:
+        """Shows the correct icon for container."""
+        return "mdi:wifi-lock"
         
+    @property
+    def unique_id(self) -> str:
+        """Return the name of the sensor."""
+        return (
+            f"{NAME} Wifi"
+        )
+    
+    @property
+    def device_info(self) -> dict:
+        """I can't remember why this was needed :D"""
+        return {
+            "identifiers": {(DOMAIN, self.unique_id)},
+            "name": self.name,
+            "manufacturer": DOMAIN,
+        }
+
+    async def async_update(self):
         await self._data.update()
+    
+    @property
+    def is_on(self):
+        """Return true if switch is on."""
         return self._data._wifiState
     
     async def async_turn_on(self, **kwargs):
@@ -205,9 +238,32 @@ class WifreeSwitch(SwitchEntity):
         self._data = data
 
     @property
-    def name(self):
-        """Return the name of the switch."""
-        return f"{DOMAIN} Wi-free"
+    def name(self) -> str:
+        return self.unique_id
+    
+    @property
+    def icon(self) -> str:
+        """Shows the correct icon for container."""
+        return "mdi:wifi-star"
+        
+    @property
+    def unique_id(self) -> str:
+        """Return the name of the sensor."""
+        return (
+            f"{NAME} Wi-free"
+        )
+    
+    @property
+    def device_info(self) -> dict:
+        """I can't remember why this was needed :D"""
+        return {
+            "identifiers": {(DOMAIN, self.unique_id)},
+            "name": self.name,
+            "manufacturer": DOMAIN,
+        }
+
+    async def async_update(self):
+        await self._data.update()
 
     @property
     def is_on(self):

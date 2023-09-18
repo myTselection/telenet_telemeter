@@ -697,6 +697,16 @@ class SensorPeak(BinarySensorEntity):
     def friendly_name(self) -> str:
         return self.unique_id
         
+    
+    @property
+    def device_info(self) -> dict:
+        """I can't remember why this was needed :D"""
+        return {
+            "identifiers": {(DOMAIN, self.unique_id)},
+            "name": self.name,
+            "manufacturer": DOMAIN,
+        }
+
         
         
         

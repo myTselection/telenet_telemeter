@@ -60,7 +60,7 @@ class TelenetSession(object):
     def callTelenet(self, url, caller = "Not set", expectedStatusCode = 200, data = None, printResponse = False, method : HttpMethod  = HttpMethod.GET):
         if method == HttpMethod.GET:
             _LOGGER.debug(f"[{caller}] Calling GET {url}")
-            response = self.s.get(url,timeout=60)
+            response = self.s.get(url,timeout=30)
         elif method == HttpMethod.POST:
             # self.s.headers["Content-Type"] = "application/json;charset=UTF-8"
             _LOGGER.debug(f"[{caller}] Calling POST {url} with data {data}")

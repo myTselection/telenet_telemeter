@@ -23,7 +23,7 @@ DOMAIN = manifest_data.get("domain")
 NAME = manifest_data.get("name")
 VERSION = manifest_data.get("version")
 ISSUEURL = manifest_data.get("issue_tracker")
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS = [Platform.SENSOR, Platform.SWITCH]
 
 STARTUP = """
 -------------------------------------------------------------------
@@ -78,9 +78,10 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry):
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Set up component as config entry."""
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(config_entry, Platform.SENSOR)
-    )
+    for platform in PLATFORMS:
+        hass.async_create_task(
+                hass.config_entries.async_forward_entry_setup(config_entry, platform)
+        )
     _LOGGER.info(f"{DOMAIN} register_services")
     register_services(hass, config_entry)
     return True
@@ -88,8 +89,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
 
 async def async_remove_entry(hass, config_entry):
     try:
-        await hass.config_entries.async_forward_entry_unload(config_entry, Platform.SENSOR)
-        _LOGGER.info("Successfully removed sensor from the integration")
+        for platform in PLATFORMS:
+            await hass.config_entries.async_forward_entry_unload(config_entry, platform)
+            _LOGGER.info("Successfully removed sensor from the integration")
     except ValueError:
         pass
 
