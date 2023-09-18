@@ -130,12 +130,12 @@ class TelenetSession(object):
         else:
             homeSpotEnabled = "No"
         
-        if wirelessEnabled == "Yes":
+        if wirelessEnabled == True or wirelessEnabled == "Yes":
             wirelessEnabled = "Yes"
         else:
             wirelessEnabled = "No"
 
-        if wirelessEnabled == True or wirelessEnabled == "Yes":
+        if wirelessEnabled == "Yes":
             wirelessEnabled = True
         else:
             wirelessEnabled = False
