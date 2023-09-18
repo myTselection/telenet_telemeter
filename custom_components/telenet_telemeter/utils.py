@@ -135,7 +135,7 @@ class TelenetSession(object):
         else:
             wirelessEnabled = "No"
 
-        if wirelessEnabled == "Yes":
+        if wirelessEnabled == True or wirelessEnabled == "Yes":
             wirelessEnabled = True
         else:
             wirelessEnabled = False
