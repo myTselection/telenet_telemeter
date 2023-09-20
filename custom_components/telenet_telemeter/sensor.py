@@ -184,6 +184,28 @@ class ComponentData:
                     self._telemeter['productIdentifier'] = productIdentifier
                     dailyUsage = await self._hass.async_add_executor_job(lambda: self._session.productDailyUsage("internet", productIdentifier, startDate,endDate))
                     self._telemeter['internetUsage'] = dailyUsage.get('internetUsage')
+
+                    customerLocationId = None
+                    internetProductIdentifier = None
+                    modemMac = None
+                    wifiEnabled = None
+                    wifreeEnabled = None
+                    try:
+                        customerDetails = await self._hass.async_add_executor_job(lambda: self._session.customerdetails())
+                        customerLocationId = customerDetails.get('customerLocations')[0].get('id')
+                        
+                        internetProductDetails = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("INTERNET"))
+                        internetProductIdentifier = internetProductDetails[0].get('identifier')
+
+                        modemDetails = await self._hass.async_add_executor_job(lambda: self._session.modemdetails(internetProductIdentifier))
+                        modemMac = modemDetails.get('mac')
+
+                        wifiDetails = await self._hass.async_add_executor_job(lambda: self._session.wifidetails(internetProductIdentifier, modemMac))
+                        wifiEnabled = wifiDetails.get('wirelessEnabled')
+                        wifreeEnabled = wifiDetails.get('homeSpotEnabled')
+                    except:
+                        _LOGGER.error('Failure in fetching wifi details')
+                    self._telemeter['wifidetails'] = {'customerLocationId': customerLocationId, 'internetProductIdentifier': internetProductIdentifier, 'modemMac': modemMac, 'wifiEnabled': wifiEnabled, 'wifreeEnabled': wifreeEnabled}
                     
                 # mock data
                 # self._telemeter = 
@@ -245,6 +267,9 @@ class SensorInternet(Entity):
         self._peak_usage = 0
         self._offpeak_usage = 0
         self._squeezed = False
+        self._modemMac = ""
+        self._wifiEnabled = None
+        self._wifreeEnabled = None
 
     @property
     def state(self):
@@ -267,6 +292,10 @@ class SensorInternet(Entity):
             self._period_end_date =  datetime.strptime(self._data._telemeter.get('endDate'), _TELENET_DATETIME_FORMAT_V2)
             tz_info = self._period_end_date.tzinfo
             self._extended_volume =  0 #TODO unclear if available
+            wifiDetails = self._data._telemeter.get('wifidetails')
+            self._modemMac = wifiDetails.get('modemMac')
+            self._wifiEnabled = wifiDetails.get('wifiEnabled')
+            self._wifreeEnabled = wifiDetails.get('wifreeEnabled')
         _LOGGER.debug(f"SensorInternet _last_update: {self._last_update}")
         _LOGGER.debug(f"SensorInternet _product: {self._product}")
         _LOGGER.debug(f"SensorInternet _period_start_date: {self._period_start_date}")
@@ -424,6 +453,9 @@ class SensorInternet(Entity):
             "product": self._product,
             "download_speed": self._download_speed,
             "upload_speed": self._upload_speed,
+            "modemMac": self._modemMac,
+            "wifiEnabled": self._wifiEnabled,
+            "wifreeEnabled": self._wifreeEnabled,
             "telemeter_json": self._data._telemeter
         }
 
@@ -665,6 +697,16 @@ class SensorPeak(BinarySensorEntity):
     def friendly_name(self) -> str:
         return self.unique_id
         
+    
+    @property
+    def device_info(self) -> dict:
+        """I can't remember why this was needed :D"""
+        return {
+            "identifiers": {(DOMAIN, self.unique_id)},
+            "name": self.name,
+            "manufacturer": DOMAIN,
+        }
+
         
         
         
