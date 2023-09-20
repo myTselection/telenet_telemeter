@@ -28,6 +28,7 @@ Based on source code of [Killian Meersman](https://github.com/KillianMeersman/te
   - Unlimited (FUP) users should use `peak_usage` and `offpeak_usage` attributes, limited (CAP) users should use `includedvolume_usage` attribute.
   - Depending of new Telenet backend, the value can be in GB or in bytes, so might be needed to divide or multipled twice by 1024 
   - A `sensor.telenet_telemeter_peak_[w123456]` sensor is available indicating if peak time is currently active or not and if all allowed peaktime data has been used, the calculated spead limits will be shown as an attribute
+- Switch `switch.telenet_telemeter_wifi` and `switch.telenet_telemeter_wifree` will be added to show the status of the Telenet router wifi and wifree status. The wifi and wi-free can be enabled/disabled with these switches.
 - If 'Mobile' has been selected during setup of the integration, a Telenet telemeter mobile sensor will be created for each mobile subscription. For now, the sensor state will show the usage (%) state of the data part of each subscription. But details of data/text/voice volume and usage are added as attributes on the sensor, so this information is available too. 
 
 ## Status
