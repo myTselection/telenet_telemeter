@@ -87,17 +87,8 @@ class ComponentSwitch():
 
         if enableWifi is None:
             enableWifi = wifiEnabled
-        if enableWifi == True or enableWifi == "Yes":
-            enableWifi = True
-        else:
-            enableWifi = False
         if enableWifree is None:
             enableWifree = wifreeEnabled
-        elif enableWifree:
-            enableWifree = "Yes"
-        else:
-            enableWifree = "No"
-
 
         # if wifiEnabled and enableWifi and wifreeEnabled == enableWifree:
         #     _LOGGER.debug(f"no wifi change required: wifiEnabled: {wifiEnabled}, enableWifi: {enableWifi}, wifreeEnabled: {wifreeEnabled}, enableWifree: {enableWifree}")
