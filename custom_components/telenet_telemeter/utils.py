@@ -124,21 +124,12 @@ class TelenetSession(object):
         response = self.callTelenet(url,"urldetails")
         return response.json()
     
-    def switchWifi(self, homeSpotEnabled, wirelessEnabled, productIdentifier, modemMac, locationId):
-        if homeSpotEnabled == "Yes":
+    def switchWifi(self, homeSpotEnabled, wirelessEnabled: bool, productIdentifier: bool, modemMac, locationId):
+        if homeSpotEnabled:
             homeSpotEnabled = "Yes"
         else:
             homeSpotEnabled = "No"
         
-        if wirelessEnabled == True or wirelessEnabled == "Yes":
-            wirelessEnabled = "Yes"
-        else:
-            wirelessEnabled = "No"
-
-        if wirelessEnabled == "Yes":
-            wirelessEnabled = True
-        else:
-            wirelessEnabled = False
         data = {"productIdentifier":productIdentifier,"homeSpotEnabled":homeSpotEnabled,"wirelessEnabled":"Yes","locationId":locationId,"patchOperations":[{"op":"replace","path":"/wirelessInterfaces/2.4GHZ/ssids/PRIMARY/active","value":wirelessEnabled},{"op":"replace","path":"/wirelessInterfaces/5GHZ/ssids/PRIMARY/active","value":wirelessEnabled}]}
         self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/resource-service/v1/modems/{modemMac}/wireless-settings","optionswifi", 200, None, True, HttpMethod.OPTIONS)
         self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/resource-service/v1/modems/{modemMac}/wireless-settings","patchwifi", 200, data, True, HttpMethod.PATCH)
