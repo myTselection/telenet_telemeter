@@ -145,6 +145,7 @@ class ComponentSwitch():
         _LOGGER.debug(f"wifidetails switch update: {wifiDetails}")
         self._wifiState = bool(wifiDetails.get("wirelessInterfaces")[0].get('active'))
         self._wifreeState = (wifiDetails.get('homeSpotEnabled') == "Yes")
+        self._update_required = False
         return                
     
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
