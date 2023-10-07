@@ -240,6 +240,13 @@ class ComponentData:
     def clear_session(self):
         self._session : None
 
+    @property
+    def unique_id(self):
+        return f"{NAME} {self._username}"
+    @property
+    def name(self) -> str:
+        """Return the name of the sensor."""
+        return self.unique_id
 
 
 class SensorInternet(Entity):
@@ -428,7 +435,7 @@ class SensorInternet(Entity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return f"Internet {self._data._telemeter.get('productIdentifier')}"
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -459,13 +466,14 @@ class SensorInternet(Entity):
             "telemeter_json": self._data._telemeter
         }
 
+
     @property
     def device_info(self) -> dict:
-        """I can't remember why this was needed :D"""
+        """Return the device info."""
         return {
-            "identifiers": {(DOMAIN, self.unique_id)},
-            "name": self.name,
-            "manufacturer": DOMAIN,
+            "identifiers": {(NAME, self._data.unique_id)},
+            "name": self._data.name,
+            "manufacturer": NAME,
         }
 
     @property
@@ -673,7 +681,7 @@ class SensorPeak(BinarySensorEntity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return f"Peak {self._data._telemeter.get('productIdentifier')}"
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -697,14 +705,14 @@ class SensorPeak(BinarySensorEntity):
     def friendly_name(self) -> str:
         return self.unique_id
         
-    
+
     @property
     def device_info(self) -> dict:
-        """I can't remember why this was needed :D"""
+        """Return the device info."""
         return {
-            "identifiers": {(DOMAIN, self.unique_id)},
-            "name": self.name,
-            "manufacturer": DOMAIN,
+            "identifiers": {(NAME, self._data.unique_id)},
+            "name": self._data.name,
+            "manufacturer": NAME,
         }
 
         
@@ -794,7 +802,7 @@ class ComponentMobileShared(Entity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return "Mobile shared"
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -817,13 +825,14 @@ class ComponentMobileShared(Entity):
             "mobile_json": self._data._mobilemeter
         }
 
+
     @property
     def device_info(self) -> dict:
-        """I can't remember why this was needed :D"""
+        """Return the device info."""
         return {
-            "identifiers": {(DOMAIN, self.unique_id)},
-            "name": self.name,
-            "manufacturer": DOMAIN,
+            "identifiers": {(NAME, self._data.unique_id)},
+            "name": self._data.name,
+            "manufacturer": NAME,
         }
 
     @property
@@ -929,7 +938,7 @@ class SensorMobileUnassigned(Entity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return f"Mobile {self._data._mobilemeter.get('mobileusage')[self._productid].get('unassigned').get('mobilesubscriptions')[self._subsid].get('mobile')}"
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -957,12 +966,13 @@ class SensorMobileUnassigned(Entity):
 
     @property
     def device_info(self) -> dict:
-        """I can't remember why this was needed :D"""
+        """Return the device info."""
         return {
-            "identifiers": {(DOMAIN, self.unique_id)},
-            "name": self.name,
-            "manufacturer": DOMAIN,
+            "identifiers": {(NAME, self._data.unique_id)},
+            "name": self._data.name,
+            "manufacturer": NAME,
         }
+
 
     @property
     def unit(self) -> int:
@@ -1081,7 +1091,7 @@ class SensorMobileAssigned(Entity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return f"Mobile {self._data._mobilemeter.get('mobileusage')[self._productid].get('profiles')[self._profileid].get('mobilesubscriptions')[self._subsid].get('mobile')}"
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -1110,14 +1120,16 @@ class SensorMobileAssigned(Entity):
             "role": self._role
         }
 
+
     @property
     def device_info(self) -> dict:
-        """I can't remember why this was needed :D"""
+        """Return the device info."""
         return {
-            "identifiers": {(DOMAIN, self.unique_id)},
-            "name": self.name,
-            "manufacturer": DOMAIN,
+            "identifiers": {(NAME, self._data.unique_id)},
+            "name": self._data.name,
+            "manufacturer": NAME,
         }
+
 
     @property
     def unit(self) -> int:
@@ -1282,7 +1294,7 @@ class SensorMobile(Entity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return f"Mobile {self._productSubscription.get('identifier')}"
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -1316,11 +1328,11 @@ class SensorMobile(Entity):
 
     @property
     def device_info(self) -> dict:
-        """I can't remember why this was needed :D"""
+        """Return the device info."""
         return {
-            "identifiers": {(DOMAIN, self.unique_id)},
-            "name": self.name,
-            "manufacturer": DOMAIN,
+            "identifiers": {(NAME, self._data.unique_id)},
+            "name": self._data.name,
+            "manufacturer": NAME,
         }
 
     @property

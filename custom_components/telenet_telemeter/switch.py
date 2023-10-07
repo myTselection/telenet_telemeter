@@ -109,6 +109,13 @@ class ComponentSwitch():
         self._update_required = True
         return
     
+    @property
+    def unique_id(self):
+        return f"{NAME} {self._username}"
+    @property
+    def name(self) -> str:
+        """Return the name of the sensor."""
+        return self.unique_id
     
     async def force_update(self):
         """Handle the service call."""
@@ -186,7 +193,7 @@ class WifiSwitch(SwitchEntity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return "Wifi"
     
     @property
     def icon(self) -> str:
@@ -202,11 +209,11 @@ class WifiSwitch(SwitchEntity):
     
     @property
     def device_info(self) -> dict:
-        """I can't remember why this was needed :D"""
+        """Return the device info."""
         return {
-            "identifiers": {(DOMAIN, self.unique_id)},
-            "name": self.name,
-            "manufacturer": DOMAIN,
+            "identifiers": {(NAME, self._data.unique_id)},
+            "name": self._data.name,
+            "manufacturer": NAME,
         }
 
     async def async_update(self):
@@ -232,7 +239,7 @@ class WifreeSwitch(SwitchEntity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return "Wi-free"
     
     @property
     def icon(self) -> str:
@@ -248,13 +255,12 @@ class WifreeSwitch(SwitchEntity):
     
     @property
     def device_info(self) -> dict:
-        """I can't remember why this was needed :D"""
+        """Return the device info."""
         return {
-            "identifiers": {(DOMAIN, self.unique_id)},
-            "name": self.name,
-            "manufacturer": DOMAIN,
+            "identifiers": {(NAME, self._data.unique_id)},
+            "name": self._data.name,
+            "manufacturer": NAME,
         }
-
     async def async_update(self):
         await self._data.update()
 
