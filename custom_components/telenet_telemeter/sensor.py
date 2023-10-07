@@ -367,7 +367,8 @@ class SensorInternet(Entity):
                     self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage ) / ( (self._included_volume/1024/1024) + self._extended_volume)),2)
             else:
                 if self._data._v2: 
-                    self._used_percentage = float(self._data._telemeter.get('internet').get('usedPercentage'))
+                    if self._data._telemeter.get('internet').get('usedPercentage') != None:
+                        self._used_percentage = float(self._data._telemeter.get('internet').get('usedPercentage'))
                 
             
             if self._used_percentage >= 100:
@@ -396,7 +397,8 @@ class SensorInternet(Entity):
                     self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( (self._included_volume/1024/1024) + self._extended_volume)),2)
             else:
                 if self._data._v2: 
-                    self._used_percentage = float(self._data._telemeter.get('internet').get('usedPercentage'))
+                    if self._data._telemeter.get('internet').get('usedPercentage') != None:
+                        self._used_percentage = float(self._data._telemeter.get('internet').get('usedPercentage'))
                     
             if not self._data._telemeter and self._used_percentage >= 100:
                 self._squeezed = True
@@ -579,7 +581,8 @@ class SensorPeak(BinarySensorEntity):
                 self._used_percentage = round(100 * ((self._includedvolume_usage + self._extendedvolume_usage ) / ( self._included_volume + self._extended_volume)),1)
             else:
                 if self._data._v2: 
-                    self._used_percentage = float(self._data._telemeter.get('internet').get('usedPercentage'))
+                    if self._data._telemeter.get('internet').get('usedPercentage') != None:
+                        self._used_percentage = float(self._data._telemeter.get('internet').get('usedPercentage'))
                     
             if self._used_percentage >= 100:
                 self._download_speed = f"1 Mbps"
@@ -630,8 +633,9 @@ class SensorPeak(BinarySensorEntity):
             if ( self._included_volume + self._extended_volume) != 0:
                 self._used_percentage = round(100 * ((self._peak_usage + self._wifree_usage) / ( self._included_volume + self._extended_volume)),1)
             else:
-                if self._data._v2: 
-                    self._used_percentage = float(self._data._telemeter.get('internet').get('usedPercentage'))
+                if self._data._v2:
+                    if self._data._telemeter.get('internet').get('usedPercentage') != None:
+                        self._used_percentage = float(self._data._telemeter.get('internet').get('usedPercentage'))
             if not self._data._telemeter and self._used_percentage >= 100:
                 self._squeezed = True
             else:
