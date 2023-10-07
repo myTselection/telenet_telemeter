@@ -20,6 +20,7 @@ Based on source code of [Killian Meersman](https://github.com/KillianMeersman/te
 
 ## Installation
 - [HACS](https://hacs.xyz/): search for Telenet Telemeter in HACS integrations and install
+  - [![Open your Home Assistant instance and open the repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg?style=flat-square)](https://my.home-assistant.io/redirect/hacs_repository/?owner=myTselection&repository=telenet_telemeter&category=integration)
 - Restart Home Assistant
 - Add 'Telenet Telemeter' integration via HA Settings > 'Devices and Services' > 'Integrations'
 - Provide Telenet username and password
