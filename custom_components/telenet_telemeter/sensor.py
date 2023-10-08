@@ -437,7 +437,7 @@ class SensorInternet(Entity):
 
     @property
     def name(self) -> str:
-        return f"Internet {self._data._telemeter.get('productIdentifier')}"
+        return self.unique_id
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -685,7 +685,7 @@ class SensorPeak(BinarySensorEntity):
 
     @property
     def name(self) -> str:
-        return f"Peak {self._data._telemeter.get('productIdentifier')}"
+        return self.unique_id
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -806,7 +806,7 @@ class ComponentMobileShared(Entity):
 
     @property
     def name(self) -> str:
-        return "Mobile shared"
+        return self.unique_id
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -942,7 +942,7 @@ class SensorMobileUnassigned(Entity):
 
     @property
     def name(self) -> str:
-        return f"Mobile {self._data._mobilemeter.get('mobileusage')[self._productid].get('unassigned').get('mobilesubscriptions')[self._subsid].get('mobile')}"
+        return self.unique_id
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -1095,7 +1095,7 @@ class SensorMobileAssigned(Entity):
 
     @property
     def name(self) -> str:
-        return f"Mobile {self._data._mobilemeter.get('mobileusage')[self._productid].get('profiles')[self._profileid].get('mobilesubscriptions')[self._subsid].get('mobile')}"
+        return self.unique_id
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -1298,7 +1298,7 @@ class SensorMobile(Entity):
 
     @property
     def name(self) -> str:
-        return f"Mobile {self._productSubscription.get('identifier')}"
+        return self.unique_id
 
     @property
     def extra_state_attributes(self) -> dict:
