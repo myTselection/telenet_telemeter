@@ -193,7 +193,7 @@ class WifiSwitch(SwitchEntity):
 
     @property
     def name(self) -> str:
-        return "Wifi"
+        return self.unique_id
     
     @property
     def icon(self) -> str:
@@ -239,7 +239,7 @@ class WifreeSwitch(SwitchEntity):
 
     @property
     def name(self) -> str:
-        return "Wi-free"
+        return self.unique_id
     
     @property
     def icon(self) -> str:
