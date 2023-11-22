@@ -1,0 +1,55 @@
+{
+    "config": {
+        "title": "Telenet Telemeter",
+        "step": {
+            "user": {
+                "description": "Vyžaduje sa nastavenie snímača Telenet Telementer, používateľské meno a heslo. Uveďte, či sa má sledovať používanie internetu a/alebo mobilu.",
+                "data": {
+                    "username": "Používateľské meno",
+                    "password": "Heslo",
+					"internet": "Internet",
+					"mobile": "Mobil"
+                }
+            },
+            "edit": {
+                "description": "Upraviť nastavenie Vyžaduje sa snímač telenetového telemetra, používateľské meno a heslo. Uveďte, či sa má sledovať používanie internetu a/alebo mobilu.",
+                "data": {
+                    "username": "Používateľské meno",
+                    "password": "Heslo",
+					"internet": "Internet",
+					"mobile": "Mobil"
+                }
+            }
+
+        },
+        "error": {
+            "missing username": "Zadajte platné používateľské meno služby Telenet",
+            "missing password": "Zadajte platné heslo služby Telenet",
+            "missing internet": "Uveďte, či sa má sledovať používanie internetu",
+            "missing mobile": "Uveďte, či sa má sledovať používanie mobilných zariadení",
+            "missing data options handler": "Obslužný program možností zlyhal",
+            "no_valid_settings": "Žiadne platné nastavenia, zadajte používateľské meno, heslo, internet a mobil v konfigurácii ha."
+        }
+    },
+    "options": {
+        "step": {
+            "edit": {
+                "description": "Upraviť nastavenie Vyžaduje sa snímač telenetového telemetra, používateľské meno a heslo. Uveďte, či sa má sledovať používanie internetu a/alebo mobilu.",
+                "data": {
+                    "username": "Používateľské meno",
+                    "password": "Heslo",
+					"internet": "Internet",
+					"mobile": "Mobil"
+                }
+            }
+        },
+        "error": {
+            "missing username": "Zadajte platné používateľské meno služby Telenet",
+            "missing password": "Zadajte platné heslo služby Telenet",
+            "missing internet": "Uveďte, či sa má sledovať používanie internetu",
+            "missing mobile": "Uveďte, či sa má sledovať používanie mobilných zariadení",
+            "missing data options handler": "Obslužný program možností zlyhal",
+            "no_valid_settings": "Žiadne platné nastavenia, zadajte používateľské meno, heslo, internet a mobil v konfigurácii ha."
+        }
+    }
+}
