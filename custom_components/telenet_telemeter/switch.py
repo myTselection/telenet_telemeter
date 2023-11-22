@@ -24,8 +24,8 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     data = ComponentSwitch(hass, config)
     wifiSwitch = WifiSwitch(data)
     switches.append(wifiSwitch)
-    wifreeSwitch = WifreeSwitch(data)
-    switches.append(wifreeSwitch)
+    # wifreeSwitch = WifreeSwitch(data)
+    # switches.append(wifreeSwitch)
 
     async_add_entities(switches)
 

@@ -380,12 +380,14 @@ class SensorInternet(Entity):
             #Unlimited FUP subscription, not capped
             #when peak indication is available, only use peak + wifree in total used counter, as offpeak is not attributed
             if not self._data._v2:
-                self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+                # self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+                self._wifree_usage = 0
                 self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
                 self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
                 self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
             else:
-                self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
+                # self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
+                self._wifree_usage = 0
                 self._peak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('peak'),1)
                 self._includedvolume_usage = self._peak_usage
                 self._offpeak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('offPeak'),1)
@@ -567,11 +569,13 @@ class SensorPeak(BinarySensorEntity):
         if (not self._data._v2 and self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (self._data._v2 and self._data._telemeter and self._data._telemeter.get('internet').get('category') == 'CAP'):
             #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
             if not self._data._v2:
-                self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+                # self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+                self._wifree_usage = 0
                 self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
                 self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
             else:
-                self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
+                # self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
+                self._wifree_usage = 0
                 self._includedvolume_usage = self._data._telemeter.get('internet').get('totalUsage').get('units')
                 self._extendedvolume_usage = self._data._telemeter.get('internet').get('extendedUsage').get('volume')
             
@@ -619,12 +623,14 @@ class SensorPeak(BinarySensorEntity):
             # https://www2.telenet.be/nl/klantenservice/wat-is-onbeperkt-surfen/
             
             if not self._data._v2:
-                self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+                # self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+                self._wifree_usage = 0
                 self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
                 self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
                 self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
             else:
-                self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
+                # self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
+                self._wifree_usage = 0
                 self._peak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('peak'),1)
                 self._includedvolume_usage = self._peak_usage
                 self._offpeak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('offPeak'),1)
