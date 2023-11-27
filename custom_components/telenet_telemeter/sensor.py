@@ -351,11 +351,13 @@ class SensorInternet(Entity):
             #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
             #CAPPED subscription (not unlimited)
             if not self._data._v2:
-                self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+                # self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
+                self._wifree_usage = 0
                 self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
                 self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
             else:
-                self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
+                # self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
+                self._wifree_usage = 0
                 self._includedvolume_usage = self._data._telemeter.get('internet').get('totalUsage').get('units')
                 self._extendedvolume_usage = self._data._telemeter.get('internet').get('extendedUsage').get('volume')
 
