@@ -290,6 +290,9 @@ class SensorInternet(Entity):
             self._product = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype') 
             self._period_start_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
             self._period_end_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodend'), _TELENET_DATETIME_FORMAT)
+            # Add one day to the datetime object
+            self._period_end_date = self._period_end_date + timedelta(days=1)
+
             tz_info = self._period_end_date.tzinfo
             self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')
         else:
@@ -297,6 +300,9 @@ class SensorInternet(Entity):
             self._product =  self._data._product_details.get('product').get('labelkey','N/A')
             self._period_start_date =   datetime.strptime(self._data._telemeter.get('startDate'), _TELENET_DATETIME_FORMAT_V2)
             self._period_end_date =  datetime.strptime(self._data._telemeter.get('endDate'), _TELENET_DATETIME_FORMAT_V2)
+
+            # Add one day to the datetime object
+            self._period_end_date = self._period_end_date + timedelta(days=1)
             tz_info = self._period_end_date.tzinfo
             self._extended_volume =  0 #TODO unclear if available
             wifiDetails = self._data._telemeter.get('wifidetails')
@@ -767,6 +773,15 @@ class ComponentMobileShared(Entity):
             self._last_update =  productdetails.get('lastupdated')
             self._product = productdetails.get('label')
             self._period_end_date = productdetails.get('nextbillingdate')
+            format_string = "%d-%m-%Y %H:%M:%S"
+            # Parse the timestamp string into a datetime object
+            original_datetime = datetime.strptime(self._period_end_date, format_string)
+
+            # Add one day to the datetime object
+            new_datetime = original_datetime + timedelta(days=1)
+
+            # Format the new datetime object back to a string
+            self._period_end_date = new_datetime.strftime(format_string)
             # get shared sensor
             sharedusage = productdetails.get('sharedusage')
             
@@ -899,6 +914,15 @@ class SensorMobileUnassigned(Entity):
         self._last_update =  productdetails.get('lastupdated')
         self._product = productdetails.get('label')
         self._period_end_date = productdetails.get('nextbillingdate')
+        format_string = "%d-%m-%Y %H:%M:%S"
+        # Parse the timestamp string into a datetime object
+        original_datetime = datetime.strptime(self._period_end_date, format_string)
+
+        # Add one day to the datetime object
+        new_datetime = original_datetime + timedelta(days=1)
+
+        # Format the new datetime object back to a string
+        self._period_end_date = new_datetime.strftime(format_string)
         # get shared sensor
         unassignesub = productdetails.get('unassigned').get('mobilesubscriptions')[self._subsid]
         
@@ -1045,6 +1069,15 @@ class SensorMobileAssigned(Entity):
         self._last_update =  productdetails.get('lastupdated')
         self._product = productdetails.get('label')
         self._period_end_date = productdetails.get('nextbillingdate')
+        format_string = "%d-%m-%Y %H:%M:%S"
+        # Parse the timestamp string into a datetime object
+        original_datetime = datetime.strptime(self._period_end_date, format_string)
+
+        # Add one day to the datetime object
+        new_datetime = original_datetime + timedelta(days=1)
+
+        # Format the new datetime object back to a string
+        self._period_end_date = new_datetime.strftime(format_string)
         # get shared sensor
         profile = productdetails.get('profiles')[self._profileid]
         
@@ -1210,6 +1243,15 @@ class SensorMobile(Entity):
         self._last_update =  mobileusage.get('lastUpdated')
         self._label = self._product = self._productSubscription.get('label')
         self._period_end_date = mobileusage.get('nextBillingDate')
+        format_string = "%d-%m-%Y %H:%M:%S"
+        # Parse the timestamp string into a datetime object
+        original_datetime = datetime.strptime(self._period_end_date, format_string)
+
+        # Add one day to the datetime object
+        new_datetime = original_datetime + timedelta(days=1)
+
+        # Format the new datetime object back to a string
+        self._period_end_date = new_datetime.strftime(format_string)
         self._outofbundle = f"{mobileusage.get('outOfBundle').get('usedUnits')} {mobileusage.get('outOfBundle').get('unitType')}"
         self._number = self._identifier
         self._active = self._productSubscription.get('status')
