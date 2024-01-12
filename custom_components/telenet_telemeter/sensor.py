@@ -278,6 +278,7 @@ class SensorInternet(Entity):
         self._modemMac = ""
         self._wifiEnabled = None
         self._wifreeEnabled = None
+        self._test_property = 42
 
     @property
     def state(self):
@@ -476,6 +477,7 @@ class SensorInternet(Entity):
             "modemMac": self._modemMac,
             "wifiEnabled": self._wifiEnabled,
             "wifreeEnabled": self._wifreeEnabled,
+            "test_property": self._test_property
             "telemeter_json": self._data._telemeter
         }
 
