@@ -477,7 +477,7 @@ class SensorInternet(Entity):
             "modemMac": self._modemMac,
             "wifiEnabled": self._wifiEnabled,
             "wifreeEnabled": self._wifreeEnabled,
-            "test_property": self._test_property
+            "test_property": self._test_property,
             "telemeter_json": self._data._telemeter
         }
 
@@ -718,7 +718,8 @@ class SensorPeak(BinarySensorEntity):
             "squeezed": self._squeezed,
             "servicecategory": self._servicecategory,
             "download_speed": self._download_speed,
-            "upload_speed": self._upload_speed
+            "upload_speed": self._upload_speed,
+            "test_property": self._test_property
         }
 
 
