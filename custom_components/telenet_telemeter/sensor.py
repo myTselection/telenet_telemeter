@@ -719,7 +719,6 @@ class SensorPeak(BinarySensorEntity):
             "servicecategory": self._servicecategory,
             "download_speed": self._download_speed,
             "upload_speed": self._upload_speed,
-            "test_property": self._test_property
         }
 
 
