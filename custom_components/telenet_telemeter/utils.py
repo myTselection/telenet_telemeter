@@ -135,6 +135,10 @@ class TelenetSession(object):
         self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/resource-service/v1/modems/{modemMac}/wireless-settings","patchwifi", 200, data, True, HttpMethod.PATCH)
         return
     
+    def reboot(self, modemMac):
+        self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/resource-service/v1/modems/{modemMac}/reboot","modem_general reboot", 200, None, True, HttpMethod.POST)
+        return
+    
     def mobile(self):
         response = self.callTelenet("https://api.prd.telenet.be/ocapi/public/?p=mobileusage","mobile")
         return response.json()

@@ -51,5 +51,11 @@
             "missing data options handler": "Obslužný program možností zlyhal",
             "no_valid_settings": "Žiadne platné nastavenia, zadajte používateľské meno, heslo, internet a mobil v konfigurácii ha."
         }
+    },
+    "services": {
+        "reboot_internet": {
+            "name": "reboot_internet",
+            "description": "Reboot the internet modem"
+        }
     }
 }

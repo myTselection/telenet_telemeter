@@ -51,5 +51,11 @@
             "missing data options handler": "Option handler failed",
             "no_valid_settings": "No valid settings, provide username, password, internet & mobile in ha config."
         }
+    },
+    "services": {
+        "reboot_internet": {
+            "name": "reboot_internet",
+            "description": "Reboot the internet modem"
+        }
     }
 }

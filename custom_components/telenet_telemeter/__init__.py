@@ -82,8 +82,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         hass.async_create_task(
                 hass.config_entries.async_forward_entry_setup(config_entry, platform)
         )
-    # _LOGGER.info(f"{DOMAIN} register_services")
-    # register_services(hass, config_entry)
+    _LOGGER.info(f"{DOMAIN} register_services")
+    internet = config_entry.data.get("internet")
+    if internet: 
+        register_services(hass, config_entry)
     return True
 
 
@@ -94,3 +96,36 @@ async def async_remove_entry(hass, config_entry):
             _LOGGER.info("Successfully removed sensor from the integration")
     except ValueError:
         pass
+
+
+def register_services(hass, config_entry):
+        
+    async def handle_reboot_internet(call):
+        """Handle the service call."""
+        
+        config = config_entry.data
+        username = config.get("username")
+        password = config.get("password")
+        session = TelenetSession()
+        if not(session):
+            session = TelenetSession()
+
+        if session:
+            await hass.async_add_executor_job(lambda: session.login(username, password))
+        _LOGGER.debug(f"{NAME} reboot_internet login completed")
+        v2 = await hass.async_add_executor_job(lambda: session.apiVersion2())
+        if not v2:
+            return
+        internetProductDetails = await hass.async_add_executor_job(lambda: session.productSubscriptions("INTERNET"))
+        assert internetProductDetails is not None
+        internetProductIdentifier = internetProductDetails[0].get('identifier')
+        assert internetProductIdentifier is not None
+
+        modemDetails = await hass.async_add_executor_job(lambda: session.modemdetails(internetProductIdentifier))
+        modemMac = modemDetails.get('mac')
+        assert modemMac is not None
+        assert len(modemMac) > 0
+        await hass.async_add_executor_job(lambda: session.reboot(modemMac))
+
+    hass.services.async_register(DOMAIN, 'reboot_internet', handle_reboot_internet)
+    _LOGGER.info(f"async_register done")
