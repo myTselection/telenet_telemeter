@@ -55,7 +55,7 @@ async def async_setup(hass: HomeAssistant, config: dict):
         pass
 
     hass.async_create_task(
-        hass.config_entries.flow.async_init(
+        await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_IMPORT}, data={}
         )
     )
@@ -80,7 +80,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     """Set up component as config entry."""
     for platform in PLATFORMS:
         hass.async_create_task(
-                hass.config_entries.async_forward_entry_setup(config_entry, platform)
+                await hass.config_entries.async_forward_entry_setup(config_entry, platform)
         )
     _LOGGER.info(f"{DOMAIN} register_services")
     internet = config_entry.data.get("internet")
