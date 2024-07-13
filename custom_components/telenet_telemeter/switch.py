@@ -45,11 +45,10 @@ class ComponentSwitch():
         self._username = config.get('username')
         self._password = config.get('password')
         self._wifiState = False
-        self._wifreeState = False
         self._session = TelenetSession()
         self._update_required = False
 
-    async def handle_switch_wireless(self, enableWifi, enableWifree):
+    async def handle_switch_wireless(self, enableWifi):
         """Handle the service call."""
         
         if not(self._session):
@@ -79,33 +78,32 @@ class ComponentSwitch():
             if option.get('specurl'):
                 urlDetails = await self._hass.async_add_executor_job(lambda: self._session.urldetails(option.get('specurl')))
 
-        wifiDetails = await self._hass.async_add_executor_job(lambda: self._session.wifidetails(internetProductIdentifier, modemMac))
+        # wifiDetails = await self._hass.async_add_executor_job(lambda: self._session.wifidetails(internetProductIdentifier, modemMac))
         # wifiEnabled = wifiDetails.get('wirelessEnabled')
-        wifiEnabled = wifiDetails.get("wirelessInterfaces")[0].get('active')
-        wifreeEnabled = wifiDetails.get('homeSpotEnabled')
-        _LOGGER.debug(f"wifidetails switch handle: {wifiDetails}")
+        # wifiEnabled = wifiDetails.get("wirelessInterfaces")[0].get('active')
+        wifiStatus = await self._hass.async_add_executor_job(lambda: self._session.wifiStatus(internetProductIdentifier, modemMac))
+        _LOGGER.debug(f"wifiStatus switch handle: {wifiStatus}")
+        wifiEnabled = wifiStatus.get('cos') == 'WSO_SHARING'
+        # _LOGGER.debug(f"wifidetails switch handle: {wifiDetails}")
 
         if enableWifi is None:
             enableWifi = wifiEnabled
-        if enableWifree is None:
-            enableWifree = wifreeEnabled
 
         # if wifiEnabled and enableWifi and wifreeEnabled == enableWifree:
         #     _LOGGER.debug(f"no wifi change required: wifiEnabled: {wifiEnabled}, enableWifi: {enableWifi}, wifreeEnabled: {wifreeEnabled}, enableWifree: {enableWifree}")
         #     return
         # else:
-        _LOGGER.debug(f"wifi change required: wifiEnabled: {wifiEnabled}, enableWifi: {enableWifi}, wifreeEnabled: {wifreeEnabled}, enableWifree: {enableWifree}")
+        _LOGGER.debug(f"wifi change required: wifiEnabled: {wifiEnabled}, enableWifi: {enableWifi}")
 
     
-        await self._hass.async_add_executor_job(lambda: self._session.switchWifi(enableWifree, enableWifi, internetProductIdentifier, modemMac, customerLocationId))
+        await self._hass.async_add_executor_job(lambda: self._session.switchWifi(enableWifi, internetProductIdentifier, modemMac, customerLocationId))
 
-        _LOGGER.debug(f"{NAME} handle_switch_wifi switch executed, old state: wifiEnabled: {wifiEnabled}, wifreeEnabled: {wifreeEnabled}, new state: enableWifi: {enableWifi}, enableWifree: {enableWifree}")
+        _LOGGER.debug(f"{NAME} handle_switch_wifi switch executed, old state: wifiEnabled: {wifiEnabled}, new state: enableWifi: {enableWifi}")
         
         
         wifiDetails = await self._hass.async_add_executor_job(lambda: self._session.wifidetails(internetProductIdentifier, modemMac))
         # wifiEnabled = wifiDetails.get('wirelessEnabled')
         self._wifiState = enableWifi
-        self._wifreeState = (enableWifree == "Yes")
         self._update_required = True
         return
     
@@ -147,11 +145,13 @@ class ComponentSwitch():
             if option.get('specurl'):
                 urlDetails = await self._hass.async_add_executor_job(lambda: self._session.urldetails(option.get('specurl')))
         
-        wifiDetails = await self._hass.async_add_executor_job(lambda: self._session.wifidetails(internetProductIdentifier, modemMac))
+        # wifiDetails = await self._hass.async_add_executor_job(lambda: self._session.wifidetails(internetProductIdentifier, modemMac))
         # wifiEnabled = wifiDetails.get('wirelessEnabled')
-        _LOGGER.debug(f"wifidetails switch update: {wifiDetails}")
-        self._wifiState = bool(wifiDetails.get("wirelessInterfaces")[0].get('active'))
-        self._wifreeState = (wifiDetails.get('homeSpotEnabled') == "Yes")
+        # _LOGGER.debug(f"wifidetails switch update: {wifiDetails}")
+        wifiStatus = await self._hass.async_add_executor_job(lambda: self._session.wifiStatus(internetProductIdentifier, modemMac))
+        _LOGGER.debug(f"wifiStatus switch handle: {wifiStatus}")
+        wifiEnabled = wifiStatus.get('cos') == 'WSO_SHARING'
+        self._wifiState = wifiEnabled
         self._update_required = False
         return                
     
@@ -169,22 +169,12 @@ class ComponentSwitch():
     async def turn_on_wifi(self):
         # response = await self.handle_switch_wireless(True, None)
         # return response.get("wifiEnabled")
-        await self.handle_switch_wireless(True, None)
+        await self.handle_switch_wireless(True)
     
     async def turn_off_wifi(self):
         # response = await self.handle_switch_wireless(False, None)
         # return response.get("wifiEnabled")
-        await self.handle_switch_wireless(False, None)
-
-    async def turn_on_wifree(self):
-        # response = await self.handle_switch_wireless(None, True)
-        # return response.get("wifreeEnabled")
-        await self.handle_switch_wireless(None, True)
-    
-    async def turn_off_wifree(self):
-        # response = await self.handle_switch_wireless(None, False)
-        # return response.get("wifreeEnabled")
-        await self.handle_switch_wireless(None, False)
+        await self.handle_switch_wireless(False)
 
 class WifiSwitch(SwitchEntity):
     """Representation of a Audi switch."""
@@ -231,48 +221,3 @@ class WifiSwitch(SwitchEntity):
     async def async_turn_off(self, **kwargs):
         """Turn the switch off."""
         await self._data.turn_off_wifi()
-
-class WifreeSwitch(SwitchEntity):
-    """Representation of a Audi switch."""
-    def __init__(self, data):
-        self._data = data
-
-    @property
-    def name(self) -> str:
-        return self.unique_id
-    
-    @property
-    def icon(self) -> str:
-        """Shows the correct icon for container."""
-        return "mdi:wifi-star"
-        
-    @property
-    def unique_id(self) -> str:
-        """Return the name of the sensor."""
-        return (
-            f"{NAME} Wi-free"
-        )
-    
-    @property
-    def device_info(self) -> dict:
-        """Return the device info."""
-        return {
-            "identifiers": {(NAME, self._data.unique_id)},
-            "name": self._data.name,
-            "manufacturer": NAME,
-        }
-    async def async_update(self):
-        await self._data.update()
-
-    @property
-    def is_on(self):
-        """Return true if switch is on."""
-        return self._data._wifreeState
-
-    async def async_turn_on(self, **kwargs):
-        """Turn the switch on."""
-        await self._data.turn_on_wifree()
-
-    async def async_turn_off(self, **kwargs):
-        """Turn the switch off."""
-        await self._data.turn_off_wifree()

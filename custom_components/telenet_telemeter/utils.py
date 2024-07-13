@@ -58,27 +58,49 @@ class TelenetSession(object):
         self.s.headers["x-alt-referer"] = "https://www2.telenet.be/residential/nl/mijn-telenet"
 
     def callTelenet(self, url, caller = "Not set", expectedStatusCode = 200, data = None, printResponse = False, method : HttpMethod  = HttpMethod.GET):
-        if method == HttpMethod.GET:
-            _LOGGER.debug(f"[{caller}] Calling GET {url}")
-            response = self.s.get(url,timeout=30)
-        elif method == HttpMethod.POST:
-            # self.s.headers["Content-Type"] = "application/json;charset=UTF-8"
-            _LOGGER.debug(f"[{caller}] Calling POST {url} with data {data}")
-            response = self.s.post(url,data,timeout=30)
-        elif method == HttpMethod.PATCH:
-            self.s.headers["Content-Type"] = "application/json;charset=UTF-8"
-            _LOGGER.debug(f"[{caller}] Calling PATCH {url} with data: {data}")
-            response = self.s.patch(url,json=data,timeout=60)
-        elif method == HttpMethod.OPTIONS:
-            self.s.headers["Content-Type"] = "application/json;charset=UTF-8"
-            _LOGGER.debug(f"[{caller}] Calling OPTIONS {url} with data: {data}")
-            response = self.s.options(url,timeout=60)
-        _LOGGER.debug(f"[{caller}] http status code = {response.status_code} (expecting {expectedStatusCode})")
-        if printResponse:
-            _LOGGER.debug(f"[{caller}] Response: {response.text}")
-        if expectedStatusCode != None:
-            assert response.status_code == expectedStatusCode
-        
+        try:
+            if method == HttpMethod.GET:
+                _LOGGER.debug(f"[{caller}] Calling GET {url}")
+                response = self.s.get(url,timeout=30)
+            elif method == HttpMethod.POST:
+                # self.s.headers["Content-Type"] = "application/json;charset=UTF-8"
+                _LOGGER.debug(f"[{caller}] Calling POST {url} with data {data}")
+                response = self.s.post(url,data,timeout=30)
+            elif method == HttpMethod.PATCH:
+                self.s.headers["Content-Type"] = "application/json;charset=UTF-8"
+                _LOGGER.debug(f"[{caller}] Calling PATCH {url} with data: {data}")
+                response = self.s.patch(url,json=data,timeout=60)
+            elif method == HttpMethod.OPTIONS:
+                self.s.headers["Content-Type"] = "application/json;charset=UTF-8"
+                _LOGGER.debug(f"[{caller}] Calling OPTIONS {url} with data: {data}")
+                response = self.s.options(url,timeout=60)
+            _LOGGER.debug(f"[{caller}] http status code = {response.status_code} (expecting {expectedStatusCode})")
+            if printResponse:
+                _LOGGER.debug(f"[{caller}] Response: {response.text}")
+            if expectedStatusCode != None:
+                assert response.status_code == expectedStatusCode
+        except Exception as e:
+            _LOGGER.error(f"callTelenet failed, trying once more: {e}")
+            if method == HttpMethod.GET:
+                _LOGGER.debug(f"[{caller}] Calling GET {url}")
+                response = self.s.get(url,timeout=30)
+            elif method == HttpMethod.POST:
+                # self.s.headers["Content-Type"] = "application/json;charset=UTF-8"
+                _LOGGER.debug(f"[{caller}] Calling POST {url} with data {data}")
+                response = self.s.post(url,data,timeout=30)
+            elif method == HttpMethod.PATCH:
+                self.s.headers["Content-Type"] = "application/json;charset=UTF-8"
+                _LOGGER.debug(f"[{caller}] Calling PATCH {url} with data: {data}")
+                response = self.s.patch(url,json=data,timeout=60)
+            elif method == HttpMethod.OPTIONS:
+                self.s.headers["Content-Type"] = "application/json;charset=UTF-8"
+                _LOGGER.debug(f"[{caller}] Calling OPTIONS {url} with data: {data}")
+                response = self.s.options(url,timeout=60)
+            _LOGGER.debug(f"[{caller}] http status code = {response.status_code} (expecting {expectedStatusCode})")
+            if printResponse:
+                _LOGGER.debug(f"[{caller}] Response: {response.text}")
+            if expectedStatusCode != None:
+                assert response.status_code == expectedStatusCode       
         return response
 
     def login(self, username, password):
@@ -120,19 +142,23 @@ class TelenetSession(object):
         response = self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/resource-service/v1/modems/{modemMac}/wireless-settings?withmetadata=true&withwirelessservice=true&productidentifier={productIdentifier}","wifidetails")
         return response.json()
     
+    def wifiStatus(self, productIdentifier, modemMac):
+        response = self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/resource-service/v1/modems/{modemMac}/wireless-status?productidentifier={productIdentifier}","wifiStatus")
+        return response.json()
+    
     def urldetails(self, url):
         response = self.callTelenet(url,"urldetails")
         return response.json()
     
-    def switchWifi(self, homeSpotEnabled, wirelessEnabled: bool, productIdentifier: bool, modemMac, locationId):
-        if homeSpotEnabled:
-            homeSpotEnabled = "Yes"
+    def switchWifi(self,  wirelessEnabled: bool, productIdentifier: bool, modemMac, locationId):
+        # data = {"productIdentifier":productIdentifier,"homeSpotEnabled":homeSpotEnabled,"wirelessEnabled":"Yes","locationId":locationId,"patchOperations":[{"op":"replace","path":"/wirelessInterfaces/2.4GHZ/ssids/PRIMARY/active","value":wirelessEnabled},{"op":"replace","path":"/wirelessInterfaces/5GHZ/ssids/PRIMARY/active","value":wirelessEnabled}]}
+        if wirelessEnabled:
+            data = {"cos": "WSO_SHARING"}
         else:
-            homeSpotEnabled = "No"
-        
-        data = {"productIdentifier":productIdentifier,"homeSpotEnabled":homeSpotEnabled,"wirelessEnabled":"Yes","locationId":locationId,"patchOperations":[{"op":"replace","path":"/wirelessInterfaces/2.4GHZ/ssids/PRIMARY/active","value":wirelessEnabled},{"op":"replace","path":"/wirelessInterfaces/5GHZ/ssids/PRIMARY/active","value":wirelessEnabled}]}
-        self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/resource-service/v1/modems/{modemMac}/wireless-settings","optionswifi", 200, None, True, HttpMethod.OPTIONS)
-        self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/resource-service/v1/modems/{modemMac}/wireless-settings","patchwifi", 200, data, True, HttpMethod.PATCH)
+            data = {"cos":"WSO_OFF"}
+        # self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/resource-service/v1/modems/{modemMac}/wireless-settings","optionswifi", 200, None, True, HttpMethod.OPTIONS)
+        # self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/resource-service/v1/modems/{modemMac}/wireless-settings","patchwifi", 200, data, True, HttpMethod.PATCH)
+        self.callTelenet(f"https://api.prd.telenet.be/ocapi/public/api/resource-service/v1/modems/{modemMac}/wireless-status","patchwifi", 200, data, True, HttpMethod.PATCH)
         return
     
     def reboot(self, modemMac):
