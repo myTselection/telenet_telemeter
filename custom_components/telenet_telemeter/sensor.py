@@ -255,27 +255,27 @@ class SensorInternet(Entity):
         self._data = data
         self._hass = hass
         self._last_update = None
-        self._used_percentage = 0
+        self._used_percentage = None
         self._period_start_date = None
         self._period_end_date = None
         tz_info = None
-        self._period_length = 0
-        self._period_left = 0
-        self._period_used = 0
-        self._total_volume = 0
-        self._included_volume = 0
-        self._extended_volume = 0
-        self._wifree_usage = 0
-        self._includedvolume_usage = 0
-        self._extendedvolume_usage = 0
-        self._period_used_percentage = 0
+        self._period_length = None
+        self._period_left = None
+        self._period_used = None
+        self._total_volume = None
+        self._included_volume = None
+        self._extended_volume = None
+        self._wifree_usage = None
+        self._includedvolume_usage = None
+        self._extendedvolume_usage = None
+        self._period_used_percentage = None
         self._product = None
-        self._download_speed = 0
-        self._upload_speed = 0
-        self._peak_usage = 0
-        self._offpeak_usage = 0
+        self._download_speed = None
+        self._upload_speed = None
+        self._peak_usage = None
+        self._offpeak_usage = None
         self._squeezed = False
-        self._modemMac = ""
+        self._modemMac = None
         self._wifiEnabled = None
         self._wifreeEnabled = None
 
@@ -513,17 +513,17 @@ class SensorPeak(BinarySensorEntity):
         self._peak = None
         self._servicecategory = None
                 
-        self._download_speed = 0
-        self._upload_speed = 0
+        self._download_speed = None
+        self._upload_speed = None
                 
-        self._used_percentage = 0
-        self._peak_usage = 0
-        self._offpeak_usage = 0
-        self._wifree_usage = 0
+        self._used_percentage = None
+        self._peak_usage = None
+        self._offpeak_usage = None
+        self._wifree_usage = None
         
-        self._included_volume = 0
-        self._extended_volume = 0
-        self._total_volume = 0
+        self._included_volume = None
+        self._extended_volume = None
+        self._total_volume = None
         self._squeezed = False
         
 
