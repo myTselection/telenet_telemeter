@@ -127,7 +127,19 @@ async def async_remove_entry(hass, config_entry):
         _LOGGER.info("Successfully removed sensor from the integration")
     except ValueError:
         pass
-        
+
+
+# Function to get the desired product
+def get_desired_internet_product(products):
+    # Try to find a product with productType = "bundle"
+    bundle_product = next((product for product in products if product['productType'].lower() == 'bundle'), None)
+    _LOGGER.debug(f'bundle_product: {bundle_product}')
+    
+    # If no bundle is found, look for productType = "internet"
+    if not bundle_product:
+        return next((product for product in products if product['productType'].lower() == 'internet'), products[0])
+    
+    return bundle_product
 
 class ComponentData:
     def __init__(self, username, password, internet, mobile, client, hass):
@@ -165,17 +177,14 @@ class ComponentData:
                     # try new backend structure
                     planInfo = await self._hass.async_add_executor_job(lambda: self._session.planInfo())
                     productIdentifier = ""
-                    for plan in planInfo:
-                        if productIdentifier != "":
-                            break
-                        if plan.get('productType','').lower() == "bundle":
-                            for product in plan.get('products'):
-                                if product.get('productType','').lower() == "internet":
-                                    productIdentifier = product.get('identifier')
-                                    break
-                        elif plan.get('productType','').lower() == "internet":
-                            productIdentifier = plan.get('identifier')
-                            break
+                    
+                    desired_product = get_desired_internet_product(planInfo)
+                    if desired_product.get('productType','').lower() == "bundle":
+                        productIdentifier = next((product for product in desired_product.get('products') if product['productType'].lower() == 'internet'), desired_product.get('identifier'))
+                        _LOGGER.debug(f"productIdentifier bundle: {productIdentifier}")
+                    elif desired_product.get('productType','').lower() == "internet":
+                        productIdentifier = desired_product.get('identifier')
+                        _LOGGER.debug(f"productIdentifier internet: {productIdentifier}")
                     billcycles = await self._hass.async_add_executor_job(lambda: self._session.billCycles("internet", productIdentifier))
                     startDate = billcycles.get('billCycles')[0].get("startDate")
                     endDate = billcycles.get('billCycles')[0].get("endDate")
@@ -196,7 +205,12 @@ class ComponentData:
                         customerLocationId = customerDetails.get('customerLocations')[0].get('id')
                         
                         internetProductDetails = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("INTERNET"))
-                        internetProductIdentifier = internetProductDetails[0].get('identifier')
+                        _LOGGER.debug(f"internetProductDetails: {internetProductDetails}")
+                        
+                        # Get the desired product
+                        desired_product = get_desired_internet_product(internetProductDetails)
+                        internetProductIdentifier = desired_product.get('identifier')
+                        _LOGGER.debug(f"internetProductIdentifier: {internetProductIdentifier}")
 
                         modemDetails = await self._hass.async_add_executor_job(lambda: self._session.modemdetails(internetProductIdentifier))
                         modemMac = modemDetails.get('mac')
@@ -231,6 +245,8 @@ class ComponentData:
                 assert self._mobilemeter is not None
                 _LOGGER.debug(f"ComponentData init mobilemeter data: {self._mobilemeter}")
                 
+
+
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def _update(self):
         await self._forced_update()
