@@ -130,15 +130,17 @@ async def async_remove_entry(hass, config_entry):
 
 
 # Function to get the desired product
-def get_desired_internet_product(products):
+def get_desired_internet_product(products, desired_product_type):
     # Try to find a product with productType = "bundle"
-    bundle_product = next((product for product in products if product['productType'].lower() == 'bundle'), None)
-    _LOGGER.debug(f'bundle_product: {bundle_product}')
+    _LOGGER.debug(f'products: {products}, {desired_product_type}')
+    bundle_product = next((product for product in products if product['productType'].lower() == desired_product_type), None)
+    _LOGGER.debug(f'desired_product: {bundle_product}, {desired_product_type}')
     
     # If no bundle is found, look for productType = "internet"
     if not bundle_product:
         return next((product for product in products if product['productType'].lower() == 'internet'), products[0])
     
+    _LOGGER.debug(f'return desired_product: {bundle_product}, {desired_product_type}')
     return bundle_product
 
 class ComponentData:
@@ -177,14 +179,16 @@ class ComponentData:
                     # try new backend structure
                     planInfo = await self._hass.async_add_executor_job(lambda: self._session.planInfo())
                     productIdentifier = ""
-                    
-                    desired_product = get_desired_internet_product(planInfo)
-                    if desired_product.get('productType','').lower() == "bundle":
-                        productIdentifier = next((product for product in desired_product.get('products') if product['productType'].lower() == 'internet'), desired_product.get('identifier'))
-                        _LOGGER.debug(f"productIdentifier bundle: {productIdentifier}")
-                    elif desired_product.get('productType','').lower() == "internet":
-                        productIdentifier = desired_product.get('identifier')
-                        _LOGGER.debug(f"productIdentifier internet: {productIdentifier}")
+                    _LOGGER.debug(f"planInfo: {planInfo}")
+                    desired_product = get_desired_internet_product(planInfo, 'bundle')
+                    productIdentifier = desired_product.get('identifier')
+                    _LOGGER.debug(f"productIdentifier internet: {productIdentifier}")
+                    # if desired_product.get('productType','').lower() == "bundle":
+                    #     productIdentifier = next((product for product in desired_product.get('products') if product['productType'].lower() == 'internet'), desired_product.get('identifier'))
+                    #     _LOGGER.debug(f"productIdentifier bundle: {productIdentifier}")
+                    # else:
+                    #     productIdentifier = desired_product.get('identifier')
+                    #     _LOGGER.debug(f"productIdentifier internet: {productIdentifier}")
                     billcycles = await self._hass.async_add_executor_job(lambda: self._session.billCycles("internet", productIdentifier))
                     startDate = billcycles.get('billCycles')[0].get("startDate")
                     endDate = billcycles.get('billCycles')[0].get("endDate")
@@ -195,20 +199,20 @@ class ComponentData:
                     dailyUsage = await self._hass.async_add_executor_job(lambda: self._session.productDailyUsage("internet", productIdentifier, startDate,endDate))
                     self._telemeter['internetUsage'] = dailyUsage.get('internetUsage')
 
-                    customerLocationId = None
+                    # customerLocationId = None
                     internetProductIdentifier = None
                     modemMac = None
                     wifiEnabled = None
                     wifreeEnabled = None
                     try:
-                        customerDetails = await self._hass.async_add_executor_job(lambda: self._session.customerdetails())
-                        customerLocationId = customerDetails.get('customerLocations')[0].get('id')
+                        # customerDetails = await self._hass.async_add_executor_job(lambda: self._session.customerdetails())
+                        # customerLocationId = customerDetails.get('customerLocations')[0].get('id')
                         
                         internetProductDetails = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("INTERNET"))
                         _LOGGER.debug(f"internetProductDetails: {internetProductDetails}")
                         
                         # Get the desired product
-                        desired_product = get_desired_internet_product(internetProductDetails)
+                        desired_product = get_desired_internet_product(internetProductDetails, 'internet')
                         internetProductIdentifier = desired_product.get('identifier')
                         _LOGGER.debug(f"internetProductIdentifier: {internetProductIdentifier}")
 
@@ -220,7 +224,7 @@ class ComponentData:
                         wifreeEnabled = wifiDetails.get('homeSpotEnabled')
                     except:
                         _LOGGER.error('Failure in fetching wifi details')
-                    self._telemeter['wifidetails'] = {'customerLocationId': customerLocationId, 'internetProductIdentifier': internetProductIdentifier, 'modemMac': modemMac, 'wifiEnabled': wifiEnabled, 'wifreeEnabled': wifreeEnabled}
+                    self._telemeter['wifidetails'] = {'internetProductIdentifier': internetProductIdentifier, 'modemMac': modemMac, 'wifiEnabled': wifiEnabled, 'wifreeEnabled': wifreeEnabled}
                     
                 # mock data
                 # self._telemeter = 
@@ -381,8 +385,8 @@ class SensorInternet(Entity):
             else:
                 # self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
                 self._wifree_usage = 0
-                self._includedvolume_usage = self._data._telemeter.get('internet').get('totalUsage').get('units')
-                self._extendedvolume_usage = self._data._telemeter.get('internet').get('extendedUsage').get('volume')
+                self._includedvolume_usage = self._data._telemeter.get('internet').get('totalUsage').get('units', 0)
+                self._extendedvolume_usage = self._data._telemeter.get('internet').get('extendedUsage').get('volume', 0)
 
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
@@ -393,7 +397,7 @@ class SensorInternet(Entity):
             else:
                 if self._data._v2: 
                     if self._data._telemeter.get('internet').get('usedPercentage') != None:
-                        self._used_percentage = float(self._data._telemeter.get('internet').get('usedPercentage'))
+                        self._used_percentage = float(self._data._telemeter.get('internet').get('usedPercentage',0))
                 
             
             if self._used_percentage >= 100:
@@ -413,9 +417,10 @@ class SensorInternet(Entity):
             else:
                 # self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
                 self._wifree_usage = 0
-                self._peak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('peak'),1)
+                self._peak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('peak',0),1)
                 self._includedvolume_usage = self._peak_usage
-                self._offpeak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('offPeak'),1)
+                self._extendedvolume_usage = 0
+                self._offpeak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('offPeak',0),1)
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
                 if not self._data._v2:
@@ -425,7 +430,7 @@ class SensorInternet(Entity):
             else:
                 if self._data._v2: 
                     if self._data._telemeter.get('internet').get('usedPercentage') != None:
-                        self._used_percentage = float(self._data._telemeter.get('internet').get('usedPercentage'))
+                        self._used_percentage = float(self._data._telemeter.get('internet').get('usedPercentage',0))
                     
             if not self._data._telemeter and self._used_percentage >= 100:
                 self._squeezed = True

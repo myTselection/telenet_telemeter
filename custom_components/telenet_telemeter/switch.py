@@ -36,7 +36,20 @@ async def async_remove_entry(hass, config_entry):
         _LOGGER.info("Successfully removed switch from the integration")
     except ValueError:
         pass
-        
+
+
+
+# Function to get the desired product
+def get_desired_internet_product(products, desired_product_type):
+    # Try to find a product with productType = "bundle"
+    bundle_product = next((product for product in products if product['productType'].lower() == desired_product_type), None)
+    _LOGGER.debug(f'desired_product: {bundle_product}, {desired_product_type}')
+    
+    # If no bundle is found, look for productType = "internet"
+    if not bundle_product:
+        return next((product for product in products if product['productType'].lower() == 'internet'), products[0])
+    
+    return bundle_product      
 
 class ComponentSwitch():
     """Representation of a Audi switch."""
@@ -62,7 +75,8 @@ class ComponentSwitch():
         # customerLocationId = customerDetails.get('customerLocations')[0].get('id')
         
         internetProductDetails = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("INTERNET"))
-        internetProductIdentifier = internetProductDetails[0].get('identifier')
+        get_desired_internet_product(internetProductDetails, "internet")
+        internetProductIdentifier = get_desired_internet_product.get('identifier')
 
         modemDetails = await self._hass.async_add_executor_job(lambda: self._session.modemdetails(internetProductIdentifier))
         modemMac = modemDetails.get('mac')
@@ -135,15 +149,15 @@ class ComponentSwitch():
         modemMac = modemDetails.get('mac')
 
         productServiceDetails = await self._hass.async_add_executor_job(lambda: self._session.productService(internetProductIdentifier, "INTERNET"))
-        customerLocationId = productServiceDetails.get('locationId')
+        # customerLocationId = productServiceDetails.get('locationId')
         
-        for lineLevelProduct in productServiceDetails.get('lineLevelProducts',[]):
-            if lineLevelProduct.get('specurl'):
-                urlDetails = await self._hass.async_add_executor_job(lambda: self._session.urldetails(lineLevelProduct.get('specurl')))
+        # for lineLevelProduct in productServiceDetails.get('lineLevelProducts',[]):
+        #     if lineLevelProduct.get('specurl'):
+        #         urlDetails = await self._hass.async_add_executor_job(lambda: self._session.urldetails(lineLevelProduct.get('specurl')))
 
-        for option in productServiceDetails.get('options',[]):
-            if option.get('specurl'):
-                urlDetails = await self._hass.async_add_executor_job(lambda: self._session.urldetails(option.get('specurl')))
+        # for option in productServiceDetails.get('options',[]):
+        #     if option.get('specurl'):
+        #         urlDetails = await self._hass.async_add_executor_job(lambda: self._session.urldetails(option.get('specurl')))
         
         # wifiDetails = await self._hass.async_add_executor_job(lambda: self._session.wifidetails(internetProductIdentifier, modemMac))
         # wifiEnabled = wifiDetails.get('wirelessEnabled')
