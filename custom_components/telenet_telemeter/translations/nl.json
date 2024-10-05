@@ -1,0 +1,60 @@
+{
+    "config": {
+        "title": "Telenet Telemeter",
+        "step": {
+            "user": {
+                "description": "Stel een Telenet Telemeter-sensor in, gebruikersnaam en wachtwoord zijn vereist. Geef aan of internet- en/of mobiel gebruik gevolgd moet worden.",
+                "data": {
+                    "username": "E-mail",
+                    "password": "Wachtwoord",
+                    "internet": "Internet",
+                    "mobile": "Mobiel"
+                }
+            },
+            "edit": {
+                "description": "Bewerk de instelling van een Telenet Telemeter-sensor, gebruikersnaam en wachtwoord zijn vereist. Geef aan of internet- en/of mobiel gebruik gevolgd moet worden.",
+                "data": {
+                    "username": "E-mail",
+                    "password": "Wachtwoord",
+                    "internet": "Internet",
+                    "mobile": "Mobiel"
+                }
+            }
+        },
+        "error": {
+            "missing username": "Geef een geldige Telenet-gebruikersnaam (e-mail) op",
+            "missing password": "Geef een geldig Telenet-wachtwoord op",
+            "missing internet": "Geef aan of internetgebruik gevolgd moet worden",
+            "missing mobile": "Geef aan of mobiel gebruik gevolgd moet worden",
+            "missing data options handler": "Optie-handler is mislukt",
+            "no_valid_settings": "Geen geldige instellingen, geef gebruikersnaam, wachtwoord, internet & mobiel op in ha-configuratie."
+        }
+    },
+    "options": {
+        "step": {
+            "edit": {
+                "description": "Bewerk de instelling van een Telenet Telemeter-sensor, gebruikersnaam en wachtwoord zijn vereist. Geef aan of internet- en/of mobiel gebruik gevolgd moet worden.",
+                "data": {
+                    "username": "E-mail",
+                    "password": "Wachtwoord",
+                    "internet": "Internet",
+                    "mobile": "Mobiel"
+                }
+            }
+        },
+        "error": {
+            "missing username": "Geef een geldige Telenet-gebruikersnaam (e-mail) op",
+            "missing password": "Geef een geldig Telenet-wachtwoord op",
+            "missing internet": "Geef aan of internetgebruik gevolgd moet worden",
+            "missing mobile": "Geef aan of mobiel gebruik gevolgd moet worden",
+            "missing data options handler": "Optie-handler is mislukt",
+            "no_valid_settings": "Geen geldige instellingen, geef gebruikersnaam, wachtwoord, internet & mobiel op in ha-configuratie."
+        }
+    },
+    "services": {
+        "reboot_internet": {
+            "name": "herstart_internet",
+            "description": "Herstart het internetmodem"
+        }
+    }
+}

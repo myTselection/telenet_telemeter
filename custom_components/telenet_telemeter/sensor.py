@@ -414,6 +414,7 @@ class SensorInternet(Entity):
                 self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
                 self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
                 self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
+                self._extendedvolume_usage = 0
             else:
                 # self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
                 self._wifree_usage = 0

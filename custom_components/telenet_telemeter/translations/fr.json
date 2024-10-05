@@ -1,0 +1,60 @@
+{
+    "config": {
+        "title": "Telenet Telemeter",
+        "step": {
+            "user": {
+                "description": "Configurer un capteur Telenet Telemeter, nom d'utilisateur et mot de passe requis. Veuillez indiquer si l'utilisation d'internet et/ou de mobile doit être suivie.",
+                "data": {
+                    "username": "E-mail",
+                    "password": "Mot de passe",
+                    "internet": "Internet",
+                    "mobile": "Mobile"
+                }
+            },
+            "edit": {
+                "description": "Modifier la configuration d'un capteur Telenet Telemeter, nom d'utilisateur et mot de passe requis. Veuillez indiquer si l'utilisation d'internet et/ou de mobile doit être suivie.",
+                "data": {
+                    "username": "E-mail",
+                    "password": "Mot de passe",
+                    "internet": "Internet",
+                    "mobile": "Mobile"
+                }
+            }
+        },
+        "error": {
+            "missing username": "Veuillez fournir un nom d'utilisateur Telenet valide (e-mail)",
+            "missing password": "Veuillez fournir un mot de passe Telenet valide",
+            "missing internet": "Veuillez indiquer si l'utilisation d'internet doit être suivie",
+            "missing mobile": "Veuillez indiquer si l'utilisation mobile doit être suivie",
+            "missing data options handler": "Le gestionnaire d'options a échoué",
+            "no_valid_settings": "Aucun paramètre valide, fournissez le nom d'utilisateur, le mot de passe, internet & mobile dans la configuration ha."
+        }
+    },
+    "options": {
+        "step": {
+            "edit": {
+                "description": "Modifier la configuration d'un capteur Telenet Telemeter, nom d'utilisateur et mot de passe requis. Veuillez indiquer si l'utilisation d'internet et/ou de mobile doit être suivie.",
+                "data": {
+                    "username": "E-mail",
+                    "password": "Mot de passe",
+                    "internet": "Internet",
+                    "mobile": "Mobile"
+                }
+            }
+        },
+        "error": {
+            "missing username": "Veuillez fournir un nom d'utilisateur Telenet valide (e-mail)",
+            "missing password": "Veuillez fournir un mot de passe Telenet valide",
+            "missing internet": "Veuillez indiquer si l'utilisation d'internet doit être suivie",
+            "missing mobile": "Veuillez indiquer si l'utilisation mobile doit être suivie",
+            "missing data options handler": "Le gestionnaire d'options a échoué",
+            "no_valid_settings": "Aucun paramètre valide, fournissez le nom d'utilisateur, le mot de passe, internet & mobile dans la configuration ha."
+        }
+    },
+    "services": {
+        "reboot_internet": {
+            "name": "redémarrer_internet",
+            "description": "Redémarrer le modem internet"
+        }
+    }
+}

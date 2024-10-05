@@ -39,10 +39,10 @@ def create_schema(entry, option=False):
 
     data_schema = OrderedDict()
     data_schema[
-        vol.Required(CONF_USERNAME, description="username")
+        vol.Required(CONF_USERNAME, description="Email")
     ] = str
     data_schema[
-        vol.Required(CONF_PASSWORD, description="password")
+        vol.Required(CONF_PASSWORD, description="Password")
     ] = str
     data_schema[
         vol.Optional("internet", default=default_internet, description="Track internet usage?")
@@ -110,7 +110,7 @@ class ComponentFlowHandler(Mixin, config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             await self.test_setup(user_input)
-            return self.async_create_entry(title=NAME, data=user_input)
+            return self.async_create_entry(title=f'{NAME} {user_input.get("username","")}', data=user_input)
 
         return await self._show_config_form(user_input)
 
