@@ -52,8 +52,10 @@ async def dry_setup(hass, config_entry, async_add_devices):
         await data_internet._forced_update()
         assert data_internet._telemeter is not None
         sensor = SensorInternet(data_internet, hass)
+        sensor.async_update()
         sensors.append(sensor)
         binarysensor = SensorPeak(data_internet, hass)
+        binarysensor.async_update()
         sensors.append(binarysensor)
     if mobile:
         data_mobile = ComponentData(
@@ -133,12 +135,12 @@ async def async_remove_entry(hass, config_entry):
 def get_desired_internet_product(products, desired_product_type):
     # Try to find a product with productType = "bundle"
     _LOGGER.debug(f'products: {products}, {desired_product_type}')
-    bundle_product = next((product for product in products if product['productType'].lower() == desired_product_type), None)
+    bundle_product = next((product for product in products if product.get('productType','').lower() == desired_product_type), None)
     _LOGGER.debug(f'desired_product: {bundle_product}, {desired_product_type}')
     
     # If no bundle is found, look for productType = "internet"
     if not bundle_product:
-        return next((product for product in products if product['productType'].lower() == 'internet'), products[0])
+        return next((product for product in products if product.get('productType','').lower() == 'internet'), products[0])
     
     _LOGGER.debug(f'return desired_product: {bundle_product}, {desired_product_type}')
     return bundle_product
@@ -183,12 +185,13 @@ class ComponentData:
                     desired_product = get_desired_internet_product(planInfo, 'bundle')
                     productIdentifier = desired_product.get('identifier')
                     _LOGGER.debug(f"productIdentifier internet: {productIdentifier}")
-                    # if desired_product.get('productType','').lower() == "bundle":
-                    #     productIdentifier = next((product for product in desired_product.get('products') if product['productType'].lower() == 'internet'), desired_product.get('identifier'))
-                    #     _LOGGER.debug(f"productIdentifier bundle: {productIdentifier}")
-                    # else:
-                    #     productIdentifier = desired_product.get('identifier')
-                    #     _LOGGER.debug(f"productIdentifier internet: {productIdentifier}")
+                    if desired_product.get('productType','').lower() == "bundle":
+                        product = next((product for product in desired_product.get('products') if product.get('productType','').lower() == 'internet'), desired_product.get('identifier'))
+                        productIdentifier = product.get('identifier')
+                        _LOGGER.debug(f"productIdentifier bundle: {productIdentifier}")
+                    else:
+                        productIdentifier = desired_product.get('identifier')
+                        _LOGGER.debug(f"productIdentifier internet: {productIdentifier}")
                     billcycles = await self._hass.async_add_executor_job(lambda: self._session.billCycles("internet", productIdentifier))
                     startDate = billcycles.get('billCycles')[0].get("startDate")
                     endDate = billcycles.get('billCycles')[0].get("endDate")

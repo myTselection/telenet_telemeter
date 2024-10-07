@@ -22,6 +22,9 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     switches = []
 
     data = ComponentSwitch(hass, config)
+    
+    await data.force_update()
+    assert data._identifier is not None
     wifiSwitch = WifiSwitch(data)
     switches.append(wifiSwitch)
     # wifreeSwitch = WifreeSwitch(data)
@@ -42,12 +45,12 @@ async def async_remove_entry(hass, config_entry):
 # Function to get the desired product
 def get_desired_internet_product(products, desired_product_type):
     # Try to find a product with productType = "bundle"
-    bundle_product = next((product for product in products if product['productType'].lower() == desired_product_type), None)
+    bundle_product = next((product for product in products if product.get('productType').lower() == desired_product_type), None)
     _LOGGER.debug(f'desired_product: {bundle_product}, {desired_product_type}')
     
     # If no bundle is found, look for productType = "internet"
     if not bundle_product:
-        return next((product for product in products if product['productType'].lower() == 'internet'), products[0])
+        return next((product for product in products if product.get('productType').lower() == 'internet'), products[0])
     
     return bundle_product      
 
@@ -57,9 +60,11 @@ class ComponentSwitch():
         self._hass = hass
         self._username = config.get('username')
         self._password = config.get('password')
-        self._wifiState = False
+        self._wifiState = None
         self._session = TelenetSession()
-        self._update_required = False
+        self._update_required = True
+        self._identifier = None
+
 
     async def handle_switch_wireless(self, enableWifi):
         """Handle the service call."""
@@ -75,8 +80,9 @@ class ComponentSwitch():
         # customerLocationId = customerDetails.get('customerLocations')[0].get('id')
         
         internetProductDetails = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("INTERNET"))
-        get_desired_internet_product(internetProductDetails, "internet")
-        internetProductIdentifier = get_desired_internet_product.get('identifier')
+        bundle = get_desired_internet_product(internetProductDetails, "internet")
+        internetProductIdentifier = bundle.get('identifier')
+        self._identifier = internetProductIdentifier
 
         modemDetails = await self._hass.async_add_executor_job(lambda: self._session.modemdetails(internetProductIdentifier))
         modemMac = modemDetails.get('mac')
@@ -143,7 +149,9 @@ class ComponentSwitch():
         # customerLocationId = customerDetails.get('customerLocations')[0].get('id')
         
         internetProductDetails = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("INTERNET"))
-        internetProductIdentifier = internetProductDetails[0].get('identifier')
+        bundle = get_desired_internet_product(internetProductDetails, "internet")
+        internetProductIdentifier = bundle.get('identifier')
+        self._identifier = internetProductIdentifier
 
         modemDetails = await self._hass.async_add_executor_job(lambda: self._session.modemdetails(internetProductIdentifier))
         modemMac = modemDetails.get('mac')
@@ -208,7 +216,7 @@ class WifiSwitch(SwitchEntity):
     def unique_id(self) -> str:
         """Return the name of the sensor."""
         return (
-            f"{NAME} Wifi"
+            f"{NAME} Wifi {self._data._identifier}"
         )
     
     @property
