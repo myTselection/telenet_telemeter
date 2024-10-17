@@ -16,9 +16,7 @@ This integration is in no way affiliated with Telenet Belgium.
 Some discussion on this topic can be found within the [Home Assistant Forum](https://community.home-assistant.io/t/telenet-telemeter-isp-monthly-data-usage/444810)
 
 Based on python application of [Killian Meersman](https://github.com/KillianMeersman/telemeter).
-<p align="right"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/logo.png" width="128"/></p>
-<!-- <p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/Gauge%20Card%20Configuration.png"/></p> -->
-
+<p align="left"><img src="./logo.png" width="64"/></p>
 
 ## Installation
 - [HACS](https://hacs.xyz/): search for Telenet Telemeter in HACS integrations and install
@@ -63,7 +61,7 @@ logger:
 
 ## Example usage:
 ### Gauge & Markdown using [dual gauge card](https://github.com/custom-cards/dual-gauge-card)
-<p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/Markdown%20Gauge%20Card%20example.png"/></p>
+<p align="center"><img src="./examples/Markdown%20Gauge%20Card%20example.png"/></p>
 
 <details><summary>Show markdown code example</summary>
 
@@ -133,7 +131,7 @@ cards:
 </details>
 
 ### [Apex Chart Card](https://github.com/RomRider/apexcharts-card)
-<p align="center"><img src="https://github.com/myTselection/telenet_telemeter/blob/main/ApexChartExample.png"/></p>
+<p align="center"><img src="./examples/ApexChartExample.png"/></p>
 
 <details><summary>Show Apex Chart markdown code example</summary>
 
@@ -180,6 +178,117 @@ cards:
         show:
           datalabels: true
         transform: return x;
+```
+
+</details>
+
+### [flex-horseshoe-card](https://github.com/AmoebeLabs/flex-horseshoe-card)
+<p align="center"><img src="./examples/FlexHorseShoeCardExample.png"/></p>
+
+<details><summary>Show "Flex horseshoe card" code example</summary>
+
+```
+type: custom:flex-horseshoe-card
+entities:
+  - entity: sensor.telenet_telemeter
+    attribute: period_used_percentage
+    decimals: 1
+    unit: "%"
+    name: Telemeter
+    tap_action:
+      action: none
+  - entity: sensor.telenet_telemeter
+    attribute: period_days_left
+    decimals: 0
+    unit: d
+    name: resterend
+    icon: mdi:calendar
+  - entity: sensor.telenet_telemeter
+    attribute: includedvolume_usage
+    decimals: 1
+    unit: Gb
+    name: verbruikt
+show:
+  horseshoe_style: colorstop
+layout:
+  hlines:
+    - id: 0
+      xpos: 50
+      ypos: 40
+      length: 50
+      styles:
+        - stroke-width: 1;
+        - opacity: 0.6;
+        - stroke-linecap: round;
+  vlines:
+    - id: 0
+      xpos: 50
+      ypos: 60
+      length: 20
+      styles:
+        - stroke-width: 1;
+        - opacity: 0.6;
+        - stroke-linecap: round;
+  states:
+    - id: 0
+      entity_index: 0
+      xpos: 50
+      ypos: 34
+      styles:
+        - font-size: 3em;
+    - id: 1
+      entity_index: 1
+      xpos: 46
+      ypos: 59
+      styles:
+        - font-size: 1.2em;
+        - text-anchor: end
+    - id: 2
+      entity_index: 2
+      xpos: 53
+      ypos: 59
+      styles:
+        - font-size: 1.2em;
+        - text-anchor: start
+  names:
+    - id: 0
+      entity_index: 0
+      xpos: 50
+      ypos: 95
+      styles:
+        - font-size: 1.6em;
+        - opacty: 1;
+    - id: 1
+      entity_index: 1
+      xpos: 46
+      ypos: 66
+      styles:
+        - font-size: 0.6em;
+        - opacity: 0.6;
+        - text-anchor: end
+    - id: 2
+      entity_index: 2
+      xpos: 54
+      ypos: 66
+      styles:
+        - font-size: 0.6em;
+        - opacity: 0.6;
+        - text-anchor: start
+  icons:
+    - id: 0
+      entity_index: 1
+      xpos: 31
+      ypos: 58
+      icon_size: 1.5
+      align: end
+      styles:
+        - opacity: 0.6
+horseshoe_scale:
+  min: 0
+  max: 100
+color_stops:
+  "90": "#FFC421"
+  "95": "#FF0000"
 ```
 
 </details>
