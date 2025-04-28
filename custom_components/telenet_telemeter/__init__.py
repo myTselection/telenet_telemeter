@@ -45,7 +45,7 @@ async def async_setup(hass: HomeAssistant, config: dict):
     """Set up this component using YAML."""
     _LOGGER.info(STARTUP)
     if config.get(DOMAIN) is None:
-        # We get her if the integration is set up using config flow
+        # We get here if the integration is set up using config flow
         return True
 
     try:

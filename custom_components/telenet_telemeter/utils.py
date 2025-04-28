@@ -7,6 +7,7 @@ from typing import List
 import requests
 from pydantic import BaseModel
 from enum import Enum
+import re
 
 import voluptuous as vol
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -53,9 +54,11 @@ class HttpMethod(Enum):
 class TelenetSession(object):
     def __init__(self):
         self.s = requests.Session()
-        self.s.headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
-        # self.s.headers["x-alt-referer"] = "https://www2.telenet.be/nl/klantenservice/#/pages=1/menu=selfservice"
-        self.s.headers["x-alt-referer"] = "https://www2.telenet.be/residential/nl/mijn-telenet"
+        self.s.headers["User-Agent"] = "Mozilla/5.0 (X11; Linux x86_64; rv:137.0) Gecko/20100101 Firefox/137.0"
+        self.s.headers["x-alt-referer"] = "https://www2.telenet.be/residential/nl/mijn-telenet/"
+        self.s.headers["X-Requested-With"] = "XMLHttpRequest"
+        self.s.headers["Origin"] = "https://www2.telenet.be"
+        self.s.headers["Referrer"] = "https://www2.telenet.be"
 
     def callTelenet(self, url, caller = "Not set", expectedStatusCode = 200, data = None, printResponse = False, method : HttpMethod  = HttpMethod.GET):
         try:
@@ -63,7 +66,7 @@ class TelenetSession(object):
                 _LOGGER.debug(f"[{caller}] Calling GET {url}")
                 response = self.s.get(url,timeout=30)
             elif method == HttpMethod.POST:
-                # self.s.headers["Content-Type"] = "application/json;charset=UTF-8"
+                self.s.headers["Content-Type"] = "application/json;charset=UTF-8"
                 _LOGGER.debug(f"[{caller}] Calling POST {url} with data {data}")
                 response = self.s.post(url,data,timeout=30)
             elif method == HttpMethod.PATCH:
@@ -80,43 +83,87 @@ class TelenetSession(object):
             if expectedStatusCode != None:
                 assert response.status_code == expectedStatusCode
         except Exception as e:
-            _LOGGER.error(f"callTelenet failed, trying once more: {e}")
-            if method == HttpMethod.GET:
-                _LOGGER.debug(f"[{caller}] Calling GET {url}")
-                response = self.s.get(url,timeout=30)
-            elif method == HttpMethod.POST:
-                # self.s.headers["Content-Type"] = "application/json;charset=UTF-8"
-                _LOGGER.debug(f"[{caller}] Calling POST {url} with data {data}")
-                response = self.s.post(url,data,timeout=30)
-            elif method == HttpMethod.PATCH:
-                self.s.headers["Content-Type"] = "application/json;charset=UTF-8"
-                _LOGGER.debug(f"[{caller}] Calling PATCH {url} with data: {data}")
-                response = self.s.patch(url,json=data,timeout=60)
-            elif method == HttpMethod.OPTIONS:
-                self.s.headers["Content-Type"] = "application/json;charset=UTF-8"
-                _LOGGER.debug(f"[{caller}] Calling OPTIONS {url} with data: {data}")
-                response = self.s.options(url,timeout=60)
-            _LOGGER.debug(f"[{caller}] http status code = {response.status_code} (expecting {expectedStatusCode})")
-            if printResponse:
-                _LOGGER.debug(f"[{caller}] Response: {response.text}")
-            if expectedStatusCode != None:
-                assert response.status_code == expectedStatusCode       
+            _LOGGER.error(f"[{caller}]: Failed to call [{method}]({url}). Statuscode was {response.status_code}. Exception was {getattr(e, 'message', repr(e))}")
         return response
 
     def login(self, username, password):
-        response = self.callTelenet("https://api.prd.telenet.be/ocapi/oauth/userdetails","login", None)
+        _LOGGER.info("Trying to login to My Telenet")
+        assert self.callTelenet(url="https://api.prd.telenet.be/omapi/public/publicconfigs/maintenance_ocapi", caller="login").json()["enabled"] == False
+
+        response = self.callTelenet(url="https://api.prd.telenet.be/ocapi/oauth/userdetails", caller="login", expectedStatusCode=None)
         if response.status_code == 200:
             # Return if already authenticated
             return
         assert response.status_code == 401
         # Fetch state & nonce
-        _LOGGER.debug(f"loging response to split state, nonce: {response.text}")
+        _LOGGER.debug(f"Loging response to split state, nonce: {response.text}")
         state, nonce = response.text.split(",", maxsplit=2)
-        # Log in
-        self.callTelenet(f'https://login.prd.telenet.be/openid/oauth/authorize?client_id=ocapi&response_type=code&claims={{"id_token":{{"http://telenet.be/claims/roles":null,"http://telenet.be/claims/licenses":null}}}}&lang=nl&state={state}&nonce={nonce}&prompt=login',"login", None)
-        self.callTelenet("https://login.prd.telenet.be/openid/login.do","login", 200, {"j_username": username,"j_password": password,"rememberme": True}, False, HttpMethod.POST)
-        self.s.headers["X-TOKEN-XSRF"] = self.s.cookies.get("TOKEN-XSRF")
-        self.callTelenet("https://api.prd.telenet.be/ocapi/oauth/userdetails","login")
+
+        # Fetch the initial state token
+        state_token_response = self.callTelenet(
+            url="https://api.prd.telenet.be/ocapi/login/authorization/telenet_be?lang=nl&style_hint=care&targetUrl=https://www2.telenet.be/residential/nl/mytelenet.html",
+            caller="login"
+        )
+        state_token_matcher = re.search('"stateToken":"(.*)","helpLinks"', state_token_response.text) 
+        state_token_encoded = state_token_matcher.group(1)
+        state_token_decoded = state_token_encoded.encode('latin1').decode('unicode_escape')
+        _LOGGER.debug(f"Initial state token {state_token_decoded}")
+
+        self.callTelenet(
+            url="https://api.prd.telenet.be/ocapi/login/authorization/telenet_be?client_id=telenet_be&response_type=code&claims={\"id_token\":{\"http://telenet.be/claims/roles\":null,\"http://telenet.be/claims/licenses\":null}}&lang=nl&nonce=" + nonce + "&state=" + state + "&prompt=none",
+            caller="login"
+        )
+        
+        introspection_response = self.callTelenet(
+            url="https://secure.telenet.be/idp/idx/introspect",
+            method=HttpMethod.POST,
+            data=json.dumps({"stateToken": state_token_decoded}),
+            caller="login"
+        )
+        state_handle = introspection_response.json()['stateHandle']
+
+        self.callTelenet(url="https://secure.telenet.be/auth/services/devicefingerprint", caller="login")
+        self.callTelenet(url="https://secure.telenet.be/api/v1/internal/device/nonce", method=HttpMethod.POST, caller="login")
+        identify_response = self.callTelenet(
+            url="https://secure.telenet.be/idp/idx/identify", 
+            data=json.dumps({'identifier': username, 'stateHandle': state_handle}),
+            method=HttpMethod.POST,
+            caller="login"
+        )
+        state_handle = identify_response.json()['stateHandle']
+        authenticator = identify_response.json()['authenticators']['value'][0]['id']
+
+        challenge_response = self.callTelenet(
+            url="https://secure.telenet.be/idp/idx/challenge",
+            data=json.dumps({
+                "authenticator":
+                    {
+                        "id":authenticator
+                    },
+                    "stateHandle":state_handle
+                }
+            ),
+            method=HttpMethod.POST,
+            caller="login"
+        )
+        state_handle = challenge_response.json()['stateHandle']
+
+        answer_response = self.callTelenet(
+            url="https://secure.telenet.be/idp/idx/challenge/answer",
+            data=json.dumps({
+                "credentials":
+                    {
+                        "passcode":password
+                    },
+                    "stateHandle":state_handle
+                }
+            ),
+            method=HttpMethod.POST,
+            caller="login"
+        )
+
+        self.callTelenet(url=answer_response.json()["success"]["href"], caller="login")
+
 
     def userdetails(self):
         response = self.callTelenet("https://api.prd.telenet.be/ocapi/oauth/userdetails","userdetails", None)

@@ -28,7 +28,8 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     }
 )
 
-MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=15)
+MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=240)
+PARALLEL_UPDATES = 1
 
 async def dry_setup(hass, config_entry, async_add_devices):
     config = config_entry
@@ -52,10 +53,10 @@ async def dry_setup(hass, config_entry, async_add_devices):
         await data_internet._forced_update()
         assert data_internet._telemeter is not None
         sensor = SensorInternet(data_internet, hass)
-        sensor.async_update()
+        await sensor.async_update()
         sensors.append(sensor)
         binarysensor = SensorPeak(data_internet, hass)
-        binarysensor.async_update()
+        await binarysensor.async_update()
         sensors.append(binarysensor)
     if mobile:
         data_mobile = ComponentData(
@@ -500,8 +501,8 @@ class SensorInternet(Entity):
             "upload_speed": self._upload_speed,
             "modemMac": self._modemMac,
             "wifiEnabled": self._wifiEnabled,
-            "wifreeEnabled": self._wifreeEnabled,
-            "telemeter_json": self._data._telemeter
+            "wifreeEnabled": self._wifreeEnabled
+            # "telemeter_json": self._data._telemeter
         }
 
 
