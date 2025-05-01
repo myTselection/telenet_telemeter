@@ -10,7 +10,8 @@ from .utils import *
 
 _LOGGER = logging.getLogger(__name__)
 
-MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=15)
+MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=240)
+PARALLEL_UPDATES = 1
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Old way."""
