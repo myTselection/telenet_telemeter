@@ -1,5 +1,6 @@
 """Support for Wifi switches"""
 import logging
+from datetime import timedelta
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.const import CONF_USERNAME

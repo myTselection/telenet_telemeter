@@ -4,6 +4,7 @@ from pathlib import Path
 
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.typing import ConfigType
 from homeassistant.core import Config, HomeAssistant
 from homeassistant.const import Platform
 from .utils import TelenetSession
@@ -41,7 +42,7 @@ If you have any issues with this you need to open an issue here:
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup(hass: HomeAssistant, config: dict):
+async def async_setup(hass: HomeAssistant, config: ConfigType):
     """Set up this component using YAML."""
     _LOGGER.info(STARTUP)
     if config.get(DOMAIN) is None:
