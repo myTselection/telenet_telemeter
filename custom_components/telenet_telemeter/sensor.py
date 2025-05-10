@@ -1260,9 +1260,11 @@ class SensorMobile(Entity):
             mobileusage = await self._hass.async_add_executor_job(lambda: self._data._session.mobileBundleUsage(self._productSubscription.get('bundleIdentifier'),self._identifier))
             bundleusage = await self._hass.async_add_executor_job(lambda: self._data._session.mobileBundleUsage(self._productSubscription.get('bundleIdentifier')))
             assert bundleusage is not None
+            _LOGGER.debug(f"bundleusage: {bundleusage}")
         else:
             mobileusage = await self._hass.async_add_executor_job(lambda: self._data._session.mobileUsage(self._identifier))
         assert mobileusage is not None
+        _LOGGER.debug(f"mobileusage: {mobileusage}")
         
         self._last_update =  mobileusage.get('lastUpdated')
         self._label = self._product = self._productSubscription.get('label')
