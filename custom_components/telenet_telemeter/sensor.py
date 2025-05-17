@@ -1283,8 +1283,13 @@ class SensorMobile(Entity):
         self._mobileinternetonly = self._productSubscription.get('isDataOnlyPlan')    
 
         shared = False
+
         if mobileusage.get('included'):
-            usage = mobileusage.get('total')
+            if mobileusage.get('total'):
+                usage = mobileusage.get('total')
+            else:
+                usage = mobileusage.get('included')
+                shared = True
             bundle = None
         elif mobileusage.get('shared'):
             usage = mobileusage.get('shared')
