@@ -1284,17 +1284,19 @@ class SensorMobile(Entity):
 
         shared = False
 
-        if mobileusage.get('included'):
+        if mobileusage.get('shared') and self._productSubscription.get('productType') == 'bundle':
+            usage = mobileusage.get('shared')
+            bundle = bundleusage.get('shared')
+            shared = True
+        elif mobileusage.get('included'):
             if mobileusage.get('total'):
                 usage = mobileusage.get('total')
             else:
                 usage = mobileusage.get('included')
+                bundle = mobileusage.get('included')
                 shared = True
-            bundle = None
-        elif mobileusage.get('shared'):
-            usage = mobileusage.get('shared')
-            bundle = bundleusage.get('shared')
-            shared = True
+        else:
+            _LOGGER.error(f'No shared or included usage found, mobileusage: {mobileusage}, bundleusage: {bundleusage}')
 
         if usage:
             if 'data' in usage:
