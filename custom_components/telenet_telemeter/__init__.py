@@ -5,7 +5,7 @@ from pathlib import Path
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import ConfigType
-from homeassistant.core import Config, HomeAssistant
+from homeassistant.core import HomeAssistant
 from homeassistant.const import Platform
 from .utils import TelenetSession
 from homeassistant.const import (
