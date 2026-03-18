@@ -39,7 +39,7 @@ If you have any issues with this you need to open an issue here:
 )
 
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType):

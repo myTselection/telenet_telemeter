@@ -14,7 +14,7 @@ from homeassistant.util import Throttle
 from . import DOMAIN, NAME
 from .utils import *
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(DOMAIN)
 _TELENET_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.0%z"
 _TELENET_DATETIME_FORMAT_V2 = "%Y-%m-%d"
 _TELENET_DATETIME_FORMAT_MOBILE = "%Y-%m-%dT%H:%M:%S%z"

@@ -13,8 +13,11 @@ from ratelimit import limits, sleep_and_retry
 
 import voluptuous as vol
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from .const import (
+    DOMAIN,
+)
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(DOMAIN)
 
 TELENET_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.0%z"
 

@@ -9,7 +9,7 @@ from homeassistant.util import Throttle
 from . import DOMAIN, NAME
 from .utils import *
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(DOMAIN)
 
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=240)
 PARALLEL_UPDATES = 1
