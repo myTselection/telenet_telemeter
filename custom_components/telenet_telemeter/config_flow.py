@@ -16,8 +16,9 @@ from homeassistant.const import (
 
 from . import DOMAIN, NAME
 from .utils import (check_settings)
+from .const import PROVIDERS, PROVIDER_TELENET
 
-_LOGGER = logging.getLogger(DOMAIN)
+_LOGGER = logging.getLogger(__name__)
 
 
 def create_schema(entry, option=False):
@@ -26,18 +27,22 @@ def create_schema(entry, option=False):
     """
 
     if option:
-        # We use .get here incase some of the texts gets changed.
         default_username = entry.data.get(CONF_USERNAME, "")
         default_password = entry.data.get(CONF_PASSWORD, "")
         default_internet = entry.data.get("internet", True)
         default_mobile = entry.data.get("mobile", True)
+        default_provider = entry.data.get("provider", PROVIDER_TELENET)
     else:
         default_username = ""
         default_password = ""
         default_internet = True
         default_mobile = True
+        default_provider = PROVIDER_TELENET
 
     data_schema = OrderedDict()
+    data_schema[
+        vol.Required("provider", default=default_provider, description="Provider")
+    ] = vol.In(PROVIDERS)
     data_schema[
         vol.Required(CONF_USERNAME, description="Email")
     ] = str
@@ -64,31 +69,25 @@ class Mixin:
             self._errors["base"] = "no_valid_settings"
             return False
 
-        # This is what we really need.
         username = None
-
         if user_input.get("username"):
             username = user_input.get(CONF_USERNAME)
         else:
             self._errors["base"] = "missing username"
-            
-            
-        password = None
 
+        password = None
         if user_input.get("password"):
             password = user_input.get(CONF_PASSWORD)
         else:
             self._errors["base"] = "missing password"
-            
-        internet = None
 
+        internet = None
         if user_input.get("internet"):
             internet = user_input.get("internet")
         else:
             self._errors["base"] = "missing internet"
-            
-        mobile = None
 
+        mobile = None
         if user_input.get("mobile"):
             mobile = user_input.get("mobile")
         else:
@@ -105,12 +104,13 @@ class ComponentFlowHandler(Mixin, config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize."""
         self._errors = {}
 
-    async def async_step_user(self, user_input=None):  # pylint: disable=dangerous-default-value
+    async def async_step_user(self, user_input=None):
         """Handle a flow initialized by the user."""
 
         if user_input is not None:
             await self.test_setup(user_input)
-            return self.async_create_entry(title=f'{NAME} {user_input.get("username","")}', data=user_input)
+            provider = user_input.get("provider", PROVIDER_TELENET)
+            return self.async_create_entry(title=f'{NAME} {provider} {user_input.get("username","")}', data=user_input)
 
         return await self._show_config_form(user_input)
 
@@ -121,23 +121,13 @@ class ComponentFlowHandler(Mixin, config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user", data_schema=vol.Schema(data_schema), errors=self._errors
         )
 
-    async def async_step_import(self, user_input):  # pylint: disable=unused-argument
-        """Import a config entry.
-        Special type of import, we're not actually going to store any data.
-        Instead, we're going to rely on the values that are in config file.
-        """
+    async def async_step_import(self, user_input):
+        """Import a config entry."""
         return self.async_create_entry(title="configuration.yaml", data={})
-
-    # @staticmethod
-    # @callback
-    # def async_get_options_flow(config_entry):  # TODO
-    #     """Get the options flow for this handler."""
-    #     return ComponentOptionsHandler(config_entry)
 
 
 class ComponentOptionsHandler(config_entries.OptionsFlow, Mixin):
-    """Now this class isnt like any normal option handlers.. as ha devs option seems think options is
-    #  supposed to be EXTRA options, i disagree, a user should be able to edit anything.."""
+    """Options flow handler."""
 
     def __init__(self, config_entry):
         self.config_entry = config_entry
@@ -153,7 +143,6 @@ class ComponentOptionsHandler(config_entries.OptionsFlow, Mixin):
         )
 
     async def async_step_edit(self, user_input):
-        # edit does not work.
         if user_input is not None:
             await self.test_setup(user_input)
             if ok:
@@ -163,7 +152,6 @@ class ComponentOptionsHandler(config_entries.OptionsFlow, Mixin):
                 return self.async_create_entry(title="", data={})
             else:
                 self._errors["base"] = "missing data options handler"
-                # not suere this should be config_entry or user_input.
                 return self.async_show_form(
                     step_id="edit",
                     data_schema=vol.Schema(
