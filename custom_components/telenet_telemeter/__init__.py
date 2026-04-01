@@ -8,6 +8,7 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.core import HomeAssistant
 from homeassistant.const import Platform
 from .utils import TelenetSession
+from .const import PROVIDER_TELENET, PROVIDER_NAMES
 from homeassistant.const import (
     CONF_NAME,
     CONF_PASSWORD,
@@ -39,14 +40,13 @@ If you have any issues with this you need to open an issue here:
 )
 
 
-_LOGGER = logging.getLogger(DOMAIN)
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType):
     """Set up this component using YAML."""
     _LOGGER.info(STARTUP)
     if config.get(DOMAIN) is None:
-        # We get here if the integration is set up using config flow
         return True
 
     try:
@@ -71,9 +71,6 @@ async def update_listener(hass: HomeAssistant, config_entry: ConfigEntry):
 
 async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry):
     unload_ok = await hass.config_entries.async_unload_platforms(config_entry, PLATFORMS)
-    # if unload_ok:
-        # hass.data[DOMAIN].pop(config_entry.entry_id)
-
     return unload_ok
 
 
@@ -100,17 +97,18 @@ def register_services(hass, config_entry):
         
     async def handle_reboot_internet(call):
         """Handle the service call."""
-        
         config = config_entry.data
         username = config.get("username")
         password = config.get("password")
-        session = TelenetSession()
+        provider = config.get("provider", PROVIDER_TELENET)
+        session = TelenetSession(provider=provider)
         if not(session):
-            session = TelenetSession()
+            session = TelenetSession(provider=provider)
 
         if session:
             await hass.async_add_executor_job(lambda: session.login(username, password))
-        _LOGGER.debug(f"{NAME} reboot_internet login completed")
+        provider_name = PROVIDER_NAMES.get(provider, NAME)
+        _LOGGER.debug(f"{provider_name} reboot_internet login completed")
         v2 = await hass.async_add_executor_job(lambda: session.apiVersion2())
         if not v2:
             return
