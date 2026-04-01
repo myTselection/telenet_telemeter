@@ -13,8 +13,9 @@ from homeassistant.util import Throttle
 
 from . import DOMAIN, NAME
 from .utils import *
+from .const import PROVIDER_TELENET
 
-_LOGGER = logging.getLogger(DOMAIN)
+_LOGGER = logging.getLogger(__name__)
 _TELENET_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.0%z"
 _TELENET_DATETIME_FORMAT_V2 = "%Y-%m-%d"
 _TELENET_DATETIME_FORMAT_MOBILE = "%Y-%m-%dT%H:%M:%S%z"
@@ -37,6 +38,7 @@ async def dry_setup(hass, config_entry, async_add_devices):
     password = config.get("password")
     internet = config.get("internet")
     mobile = config.get("mobile")
+    provider = config.get("provider", PROVIDER_TELENET)
 
     check_settings(config, hass)
     sensors = []
@@ -48,7 +50,8 @@ async def dry_setup(hass, config_entry, async_add_devices):
             internet,
             False,
             async_get_clientsession(hass),
-            hass
+            hass,
+            provider
         )
         await data_internet._forced_update()
         assert data_internet._telemeter is not None
@@ -65,37 +68,31 @@ async def dry_setup(hass, config_entry, async_add_devices):
             False,
             mobile,
             async_get_clientsession(hass),
-            hass
+            hass,
+            provider
         )
         await data_mobile._forced_update()
         assert data_mobile._mobilemeter is not None
-        # createa mobile sensor for each mobile subscription
-        # for mobilenr in data_mobile._mobilemeter
         if not data_mobile._v2:
             mobileusage = data_mobile._mobilemeter.get('mobileusage')
             for idxproduct, product in enumerate(mobileusage):
                 _LOGGER.debug("enumarate mobileusage elements idx:" + str(idxproduct) + ", product: "+ str(product) + " " +  NAME)
-                #shared sensor
                 if product.get('sharedusage'):
                     _LOGGER.info("shared mobileusage element " +  NAME)
                     sensor = ComponentMobileShared(data_mobile, idxproduct, hass)
                     sensors.append(sensor)
-                #unassigned sensor
                 if product.get('unassigned'):
                     _LOGGER.info("unassigned mobileusage element " +  NAME)
                     for idxunsubs, subscription in enumerate(product.get('unassigned').get('mobilesubscriptions')):
                         _LOGGER.debug("enumarate unassigned subsc elements idx:" + str(idxunsubs) + ", subscription: "+ str(subscription) + " " +  NAME)
-                        #unassigned sensor
                         sensor = SensorMobileUnassigned(data_mobile, idxproduct, idxunsubs, hass)
                         sensors.append(sensor)
-                #assigned sensor
                 if product.get('profiles'):
                     _LOGGER.info("assigned mobileusage element " +  NAME)
                     for idxunprofile, profile in enumerate(product.get('profiles')):
                         _LOGGER.debug("enumarate assigned profiles elements idx:" + str(idxunprofile) + ", profile: "+ str(profile) + " " +  NAME)
                         for idxunsubs, subscription in enumerate(product.get('profiles')[idxunprofile].get('mobilesubscriptions')):
                             _LOGGER.debug("enumarate assigned subsc elements idx:" + str(idxunsubs) + ", subscription: "+ str(subscription) + " " +  NAME)
-                            #assigned sensor
                             sensor = SensorMobileAssigned(data_mobile, idxproduct, idxunprofile, idxunsubs, hass)
                             sensors.append(sensor)
         else:
@@ -132,16 +129,13 @@ async def async_remove_entry(hass, config_entry):
         pass
 
 
-# Function to get the desired product
 def get_desired_internet_product(products, desired_product_type):
-    # Try to find a product with productType = "bundle"
     _LOGGER.debug(f'products: {products}, {desired_product_type}')
     bundle_product = next((product for product in products if product.get('productType','').lower() == desired_product_type), None)
     if desired_product_type == 'bundle' and bundle_product and not bundle_product.get('products'):
         bundle_product = None
     _LOGGER.debug(f'desired_product: {bundle_product}, {desired_product_type}')
     
-    # If no bundle is found, look for productType = "internet"
     if not bundle_product:
         return next((product for product in products if product.get('productType','').lower() == 'internet'), products[0])
     
@@ -149,13 +143,14 @@ def get_desired_internet_product(products, desired_product_type):
     return bundle_product
 
 class ComponentData:
-    def __init__(self, username, password, internet, mobile, client, hass):
+    def __init__(self, username, password, internet, mobile, client, hass, provider=PROVIDER_TELENET):
         self._username = username
         self._password = password
         self._internet = internet
         self._mobile = mobile
         self._client = client
-        self._session = TelenetSession()
+        self._provider = provider
+        self._session = TelenetSession(provider=provider)
         self._telemeter = None
         self._mobilemeter = None
         self._producturl = None
@@ -163,11 +158,10 @@ class ComponentData:
         self._v2 = None
         self._hass = hass
         
-    # same as update, but without throttle to make sure init is always executed
     async def _forced_update(self):
         _LOGGER.info("Fetching init stuff for " + NAME)
         if not(self._session):
-            self._session = TelenetSession()
+            self._session = TelenetSession(provider=self._provider)
 
         if self._session:
             await self._hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
@@ -181,7 +175,6 @@ class ComponentData:
                     self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
                     self._telemeter['productIdentifier'] = self._telemeter.get('internetusage')[0].get('businessidentifier')
                 else:
-                    # try new backend structure
                     planInfo = await self._hass.async_add_executor_job(lambda: self._session.planInfo())
                     productIdentifier = ""
                     _LOGGER.debug(f"planInfo: {planInfo}")
@@ -205,19 +198,14 @@ class ComponentData:
                     dailyUsage = await self._hass.async_add_executor_job(lambda: self._session.productDailyUsage("internet", productIdentifier, startDate,endDate))
                     self._telemeter['internetUsage'] = dailyUsage.get('internetUsage')
 
-                    # customerLocationId = None
                     internetProductIdentifier = None
                     modemMac = None
                     wifiEnabled = None
                     wifreeEnabled = None
                     try:
-                        # customerDetails = await self._hass.async_add_executor_job(lambda: self._session.customerdetails())
-                        # customerLocationId = customerDetails.get('customerLocations')[0].get('id')
-                        
                         internetProductDetails = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("INTERNET"))
                         _LOGGER.debug(f"internetProductDetails: {internetProductDetails}")
                         
-                        # Get the desired product
                         desired_product = get_desired_internet_product(internetProductDetails, 'internet')
                         internetProductIdentifier = desired_product.get('identifier')
                         _LOGGER.debug(f"internetProductIdentifier: {internetProductIdentifier}")
@@ -231,9 +219,6 @@ class ComponentData:
                     except:
                         _LOGGER.error('Failure in fetching wifi details')
                     self._telemeter['wifidetails'] = {'internetProductIdentifier': internetProductIdentifier, 'modemMac': modemMac, 'wifiEnabled': wifiEnabled, 'wifreeEnabled': wifreeEnabled}
-                    
-                # mock data
-                # self._telemeter = 
 
                 if not self._v2:
                     self._producturl = self._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('specurl') 
@@ -243,8 +228,6 @@ class ComponentData:
                 _LOGGER.debug(f"ComponentData init telemeter data: {self._telemeter}")
                 assert self._producturl is not None
                 self._product_details = await self._hass.async_add_executor_job(lambda: self._session.telemeter_product_details(self._producturl))
-                # mock data
-                # self._product_details = {"product":{"productid":627,"labelkey":"internet.line.fmc.wigo35gb","visible":True,"family":"FMC_RMD","producttype":"PRODUCT","weight":2,"apps":[{"labelkey":"support"}],"services":[{"labelkey":"surf.fixedinternet.wigo","servicetype":"FIXED_INTERNET","experience":{"experiencetype":"SURF","weight":10},"weight":0,"specifications":[{"labelkey":"spec.fixedinternet.wifree","value":"1","visible":False,"weight":7},{"labelkey":"spec.fixedinternet.speed.download","value":"300","unit":"Mbps","visible":True,"weight":1},{"labelkey":"spec.fixedinternet.volume.download.fup","value":"FUP","visible":True,"weight":3},{"labelkey":"spec.fixedinternet.mailbox.volume","value":"5","unit":"GB","visible":True,"weight":5},{"labelkey":"spec.fixedinternet.mailbox.included","value":"10","visible":True,"weight":4},{"labelkey":"spec.fixedinternet.speed.upload","value":"20","unit":"Mbps","visible":True,"weight":2}]}],"characteristics":{"alert_threshold_marker":{"unit":"GB","value":"750"},"detailed_scale":{"unit":"GB","value":"25"},"productsegment":"RMD","service_category":"FUP","productgroup":"FMC","initial_threshold_2":{"unit":"GB","value":"1050"},"initial_threshold_1":{"unit":"GB","value":"225"},"alert_threshold":{"unit":"GB","value":"525"},"service_category_limit":{"unit":"GB","value":"750"}},"localizedcontent":[{"locale":"nl","name":"All-Internet 300","logo":"https://www2.telenet.be/content/dam/www-telenet-be/img/self-service/products/internet-line-fmc-wigo35gb.png"},{"locale":"fr","name":"All-Internet 300","logo":"https://www2.telenet.be/content/dam/www-telenet-be/img/self-service/products/internet-line-fmc-wigo35gb.png"},{"locale":"en","name":"All-Internet 300","logo":"https://www2.telenet.be/content/dam/www-telenet-be/img/self-service/products/internet-line-fmc-wigo35gb.png"}]}}
                 assert self._product_details is not None
                 _LOGGER.debug(f"ComponentData init telemeter productdetails: {self._product_details}")
             if self._mobile:
@@ -254,7 +237,6 @@ class ComponentData:
                     self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("MOBILE"))
                 assert self._mobilemeter is not None
                 _LOGGER.debug(f"ComponentData init mobilemeter data: {self._mobilemeter}")
-                
 
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
@@ -317,9 +299,7 @@ class SensorInternet(Entity):
             self._product = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype') 
             self._period_start_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodstart'), _TELENET_DATETIME_FORMAT)
             self._period_end_date = datetime.strptime(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('periodend'), _TELENET_DATETIME_FORMAT)
-            # Add one day to the datetime object
             self._period_end_date = self._period_end_date + timedelta(days=1)
-
             tz_info = self._period_end_date.tzinfo
             self._extended_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('extendedvolume').get('volume')
         else:
@@ -327,11 +307,9 @@ class SensorInternet(Entity):
             self._product =  self._data._product_details.get('product').get('labelkey','N/A')
             self._period_start_date =   datetime.strptime(self._data._telemeter.get('startDate'), _TELENET_DATETIME_FORMAT_V2)
             self._period_end_date =  datetime.strptime(self._data._telemeter.get('endDate'), _TELENET_DATETIME_FORMAT_V2)
-
-            # Add one day to the datetime object
             self._period_end_date = self._period_end_date + timedelta(days=1)
             tz_info = self._period_end_date.tzinfo
-            self._extended_volume =  0 #TODO unclear if available
+            self._extended_volume =  0
             wifiDetails = self._data._telemeter.get('wifidetails')
             self._modemMac = wifiDetails.get('modemMac')
             self._wifiEnabled = wifiDetails.get('wifiEnabled')
@@ -345,14 +323,10 @@ class SensorInternet(Entity):
         self._period_length = (self._period_end_date - self._period_start_date).total_seconds()
         seconds_completed = (datetime.now(tz_info) - self._period_start_date).total_seconds()
         self._period_left = round(((self._period_end_date - datetime.now(tz_info)).total_seconds())/86400,2)
-        # self._period_used = self._period_length - self._period_left
         self._period_used = seconds_completed
         _LOGGER.debug(f"SensorInternet end date: {self._period_end_date} - now {datetime.now(tz_info)} = perdiod_left {self._period_left}, self._period_length {self._period_length}")
         self._period_used_percentage = round(100 * (self._period_used / self._period_length),1)
-        
-        
-        
-        # _LOGGER.debug(f"SensorInternet specifications: {self._data._product_details.get('product').get('services')[0].get('specifications')}")
+
         for servicetype in self._data._product_details.get('product').get('services'):
             if servicetype.get('servicetype') == 'FIXED_INTERNET':
                 for productdetails in servicetype.get('specifications'):
@@ -363,8 +337,6 @@ class SensorInternet(Entity):
                         self._upload_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
                 break
         
-        #original way to get included volume, but now getting out of product details to get FUP limits
-        # self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
         if type(self._data._product_details.get('product').get('characteristics').get('service_category_limit')) == dict:
             self._included_volume = int((self._data._product_details.get('product').get('characteristics').get('service_category_limit').get('value'))) * 1024 * 1024
         elif type(self._data._product_details.get('product').get('characteristics').get('elementarycharacteristics')) == list:
@@ -373,7 +345,6 @@ class SensorInternet(Entity):
                     self._included_volume = int(elem.get('value')) * 1024 * 1024
                     break
         else:
-            #Max volume not found in product details, so retrieve value out of telemeter
             if not self._data._v2:
                 self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
             else:
@@ -381,15 +352,11 @@ class SensorInternet(Entity):
         self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
         
         if (not self._data._v2 and self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (self._data._v2 and self._data._telemeter and self._data._telemeter.get('internet').get('category') == 'CAP'):
-            #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
-            #CAPPED subscription (not unlimited)
             if not self._data._v2:
-                # self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
                 self._wifree_usage = 0
                 self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
                 self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
             else:
-                # self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
                 self._wifree_usage = 0
                 self._includedvolume_usage = self._data._telemeter.get('internet').get('totalUsage').get('units', 0)
                 self._extendedvolume_usage = self._data._telemeter.get('internet').get('extendedUsage').get('volume', 0)
@@ -404,7 +371,6 @@ class SensorInternet(Entity):
                 if self._data._v2: 
                     if self._data._telemeter.get('internet').get('usedPercentage') != None:
                         self._used_percentage = float(self._data._telemeter.get('internet').get('usedPercentage',0))
-                
             
             if self._used_percentage >= 100:
                 self._squeezed = True
@@ -412,22 +378,18 @@ class SensorInternet(Entity):
                 self._squeezed = False
             
         else:
-            #Unlimited FUP subscription, not capped
-            #when peak indication is available, only use peak + wifree in total used counter, as offpeak is not attributed
             if not self._data._v2:
-                # self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
                 self._wifree_usage = 0
                 self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
                 self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
                 self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
                 self._extendedvolume_usage = 0
             else:
-                # self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
                 self._wifree_usage = 0
-                self._peak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('peak',0),1)
+                self._peak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('peak', 0) or 0, 1)
                 self._includedvolume_usage = self._peak_usage
                 self._extendedvolume_usage = 0
-                self._offpeak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('offPeak',0),1)
+                self._offpeak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('offPeak', 0) or 0, 1)
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
                 if not self._data._v2:
@@ -451,25 +413,18 @@ class SensorInternet(Entity):
             _LOGGER.debug(f"SensorInternet _used_percentage: {self._used_percentage}")
             _LOGGER.debug(f"SensorInternet _squeezed: {self._squeezed}")
             
-
-            
         
     async def async_will_remove_from_hass(self):
         """Clean up after entity before removal."""
         _LOGGER.info("async_will_remove_from_hass " + NAME)
         self._data.clear_session()
 
-
     @property
     def icon(self) -> str:
-        """Shows the correct icon for container."""
         return "mdi:check-network-outline"
-        #alternative: 
-        #return "mdi:wifi_tethering_error"
         
     @property
     def unique_id(self) -> str:
-        """Return the name of the sensor."""
         return (
             f"{NAME} internet {self._data._telemeter.get('productIdentifier')}"
         )
@@ -480,7 +435,6 @@ class SensorInternet(Entity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        """Return the state attributes."""
         return {
             ATTR_ATTRIBUTION: NAME,
             "last update": self._last_update,
@@ -504,13 +458,10 @@ class SensorInternet(Entity):
             "modemMac": self._modemMac,
             "wifiEnabled": self._wifiEnabled,
             "wifreeEnabled": self._wifreeEnabled
-            # "telemeter_json": self._data._telemeter
         }
-
 
     @property
     def device_info(self) -> dict:
-        """Return the device info."""
         return {
             "identifiers": {(NAME, self._data.unique_id)},
             "name": self._data.name,
@@ -519,12 +470,10 @@ class SensorInternet(Entity):
 
     @property
     def unit(self) -> int:
-        """Unit"""
         return int
 
     @property
     def unit_of_measurement(self) -> str:
-        """Return the unit of measurement this sensor expresses itself in."""
         return "%"
 
     @property
@@ -540,24 +489,19 @@ class SensorPeak(BinarySensorEntity):
         self._product = None
         self._peak = None
         self._servicecategory = None
-                
         self._download_speed = None
         self._upload_speed = None
-                
         self._used_percentage = None
         self._peak_usage = None
         self._offpeak_usage = None
         self._wifree_usage = None
-        
         self._included_volume = None
         self._extended_volume = None
         self._total_volume = None
         self._squeezed = False
-        
 
     @property
     def is_on(self):
-        """Return True if the binary sensor is on."""
         return self._peak
 
     async def async_update(self):
@@ -569,11 +513,9 @@ class SensorPeak(BinarySensorEntity):
         else:
             self._last_update =  self._data._telemeter.get('internet').get('totalUsage').get('lastUsageDate')
             self._product =  self._data._product_details.get('product').get('labelkey','N/A')      
-            self._extended_volume =  0 #TODO unclear if available
+            self._extended_volume =  0
         self._servicecategory = self._data._product_details.get('product').get('characteristics').get('service_category')
-        
 
-        # _LOGGER.debug(f"SensorInternet specifications: {self._data._product_details.get('product').get('services')[0].get('specifications')}")
         for servicetype in self._data._product_details.get('product').get('services'):
             if servicetype.get('servicetype') == 'FIXED_INTERNET':
                 for productdetails in servicetype.get('specifications'):
@@ -584,9 +526,6 @@ class SensorPeak(BinarySensorEntity):
                         self._upload_speed = f"{productdetails.get('value')} {productdetails.get('unit')}"
                 break
             
-            
-        #original way to get included volume, but now getting out of product details to get FUP limits
-        # self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
         if type(self._data._product_details.get('product').get('characteristics').get('service_category_limit')) == dict:
             self._included_volume = int((self._data._product_details.get('product').get('characteristics').get('service_category_limit').get('value'))) * 1024 * 1024
         elif type(self._data._product_details.get('product').get('characteristics').get('elementarycharacteristics')) == list:
@@ -595,27 +534,21 @@ class SensorPeak(BinarySensorEntity):
                     self._included_volume = int(elem.get('value')) * 1024 * 1024
                     break
         else:
-            #Max volume not found in product details, so retrieve value out of telemeter
             if not self._data._v2:
                 self._included_volume = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('includedvolume')
             else:
                 self._included_volume = self._data._telemeter.get('internet').get('allocatedUsage').get('units') * 1024 * 1024
         self._total_volume = (self._included_volume + self._extended_volume) / 1024 / 1024
                 
-                
         if (not self._data._v2 and self._data._telemeter and self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak') is None) or (self._data._v2 and self._data._telemeter and self._data._telemeter.get('internet').get('category') == 'CAP'):
-            #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
             if not self._data._v2:
-                # self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
                 self._wifree_usage = 0
                 self._includedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('includedvolume')
                 self._extendedvolume_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('extendedvolume')
             else:
-                # self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
                 self._wifree_usage = 0
                 self._includedvolume_usage = self._data._telemeter.get('internet').get('totalUsage').get('units')
                 self._extendedvolume_usage = self._data._telemeter.get('internet').get('extendedUsage').get('volume')
-            
             
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
@@ -631,14 +564,9 @@ class SensorPeak(BinarySensorEntity):
                 self._squeezed = True
             else:
                 self._squeezed = False
-            # Get the current time
             now = datetime.now().time()
-
-            # Define the start time and end time for the period
-            start_time = time(10, 0, 0) # 10:00:00 
-            end_time = time(23, 59, 59) # 23:59:59
-
-            # Check if the current time is between the start time and end time
+            start_time = time(10, 0, 0)
+            end_time = time(23, 59, 59)
             if start_time <= now <= end_time:
                 self._peak = True
             else:
@@ -652,25 +580,16 @@ class SensorPeak(BinarySensorEntity):
             _LOGGER.debug(f"SensorPeak _peak: {self._peak}")
             
         else:
-            #when peak indication is available, only use peak + wifree in total used counter, as offpeak is not attributed
-            
-            #https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-de-telemeter
-            
-            #peak rules: https://www2.telenet.be/nl/klantenservice/wat-zijn-de-piek-en-daluren-bij-een-abonnement-met-onbeperkt-surfen/
-            # https://www2.telenet.be/nl/klantenservice/wat-is-onbeperkt-surfen/
-            
             if not self._data._v2:
-                # self._wifree_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('wifree')
                 self._wifree_usage = 0
                 self._peak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('peak')
                 self._offpeak_usage = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('totalusage').get('offpeak')
                 self._squeezed = bool(self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('squeezed'))
             else:
-                # self._wifree_usage = self._data._telemeter.get('internet').get('wifreeUsage').get('usedUnits')
                 self._wifree_usage = 0
-                self._peak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('peak'),1)
+                self._peak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('peak', 0) or 0, 1)
                 self._includedvolume_usage = self._peak_usage
-                self._offpeak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('offPeak'),1)
+                self._offpeak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('offPeak', 0) or 0, 1)
             
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
@@ -684,44 +603,29 @@ class SensorPeak(BinarySensorEntity):
             else:
                 self._squeezed = False
             
-            # Unclear if speed in product details will be updated based on actual usage 
-            # most subscription will fall back onto 100Mbps/1Mbps, except for ONEup onto 200Mbps/2Mbps
             if self._used_percentage >= 100:
                 self._download_speed = f"10 Mbps"
                 self._upload_speed = f"1 Mbps"
-            
 
-            # Get the current time
             now = datetime.now().time()
-
-            # Define the start time and end time for the period
-            start_time = time(17, 0, 0) # 17u during as action on corona, non-corona: 12:00:00
-            end_time = time(23, 59, 59) # 23:59:59
-
-            # Check if the current time is between the start time and end time
+            start_time = time(17, 0, 0)
+            end_time = time(23, 59, 59)
             if start_time <= now <= end_time:
                 self._peak = True
             else:
                 self._peak = False
             
-            
         
     async def async_will_remove_from_hass(self):
-        """Clean up after entity before removal."""
         _LOGGER.info("async_will_remove_from_hass " + NAME)
         self._data.clear_session()
 
-
     @property
     def icon(self) -> str:
-        """Shows the correct icon for container."""
         return "mdi:check-network-outline"
-        #alternative: 
-        #return "mdi:wifi_tethering_error"
         
     @property
     def unique_id(self) -> str:
-        """Return the name of the sensor."""
         return (
             f"{NAME} peak {self._data._telemeter.get('productIdentifier')}"
         )
@@ -732,7 +636,6 @@ class SensorPeak(BinarySensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        """Return the state attributes."""
         return {
             ATTR_ATTRIBUTION: NAME,
             "last update": self._last_update,
@@ -747,24 +650,18 @@ class SensorPeak(BinarySensorEntity):
             "upload_speed": self._upload_speed
         }
 
-
     @property
     def friendly_name(self) -> str:
         return self.unique_id
-        
 
     @property
     def device_info(self) -> dict:
-        """Return the device info."""
         return {
             "identifiers": {(NAME, self._data.unique_id)},
             "name": self._data.name,
             "manufacturer": NAME,
         }
 
-        
-        
-        
 
 class ComponentMobileShared(Entity):
     def __init__(self, data, productid, hass):
@@ -788,7 +685,6 @@ class ComponentMobileShared(Entity):
 
     @property
     def state(self):
-        """Return the state of the sensor."""
         return self._used_percentage_data
 
     async def async_update(self):
@@ -802,18 +698,11 @@ class ComponentMobileShared(Entity):
             self._last_update =  productdetails.get('lastupdated')
             self._product = productdetails.get('label')
             self._period_end_date = productdetails.get('nextbillingdate')
-            # Parse the timestamp string into a datetime object
             original_datetime = datetime.strptime(self._period_end_date, _TELENET_DATETIME_FORMAT_MOBILE)
-
-            # Add one day to the datetime object
             new_datetime = original_datetime + timedelta(days=1)
-
-            # Format the new datetime object back to a string
             self._period_end_date = new_datetime.strftime(_TELENET_DATETIME_FORMAT_MOBILE)
-            # get shared sensor
             sharedusage = productdetails.get('sharedusage')
             
-            #todo: add checks on empty elements
             if sharedusage:
                 if sharedusage.get('included'):
                     if sharedusage.get('included').get('data'):
@@ -836,24 +725,16 @@ class ComponentMobileShared(Entity):
 
         
     async def async_will_remove_from_hass(self):
-        """Clean up after entity before removal."""
         _LOGGER.info("async_will_remove_from_hass " + NAME)
         self._data.clear_session()
 
-
     @property
     def icon(self) -> str:
-        """Shows the correct icon for container."""
         return "mdi:check-network-outline"
-        #alternative: 
-        #return "mdi:wifi_tethering_error"
         
     @property
     def unique_id(self) -> str:
-        """Return the name of the sensor."""
-        return (
-            f"{NAME} mobile shared"
-        )
+        return f"{NAME} mobile shared"
 
     @property
     def name(self) -> str:
@@ -861,7 +742,6 @@ class ComponentMobileShared(Entity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        """Return the state attributes."""
         return {
             ATTR_ATTRIBUTION: NAME,
             "last update": self._last_update,
@@ -880,10 +760,8 @@ class ComponentMobileShared(Entity):
             "mobile_json": self._data._mobilemeter
         }
 
-
     @property
     def device_info(self) -> dict:
-        """Return the device info."""
         return {
             "identifiers": {(NAME, self._data.unique_id)},
             "name": self._data.name,
@@ -892,12 +770,10 @@ class ComponentMobileShared(Entity):
 
     @property
     def unit(self) -> int:
-        """Unit"""
         return int
 
     @property
     def unit_of_measurement(self) -> str:
-        """Return the unit of measurement this sensor expresses itself in."""
         return "%"
 
     @property
@@ -929,7 +805,6 @@ class SensorMobileUnassigned(Entity):
 
     @property
     def state(self):
-        """Return the state of the sensor."""
         return self._used_percentage_data
 
     async def async_update(self):
@@ -942,18 +817,11 @@ class SensorMobileUnassigned(Entity):
         self._last_update =  productdetails.get('lastupdated')
         self._product = productdetails.get('label')
         self._period_end_date = productdetails.get('nextbillingdate')
-        # Parse the timestamp string into a datetime object
         original_datetime = datetime.strptime(self._period_end_date, _TELENET_DATETIME_FORMAT_MOBILE)
-
-        # Add one day to the datetime object
         new_datetime = original_datetime + timedelta(days=1)
-
-        # Format the new datetime object back to a string
         self._period_end_date = new_datetime.strftime(_TELENET_DATETIME_FORMAT_MOBILE)
-        # get shared sensor
         unassignesub = productdetails.get('unassigned').get('mobilesubscriptions')[self._subsid]
         
-        #todo: add checks on empty elements
         if unassignesub:
             if unassignesub.get('included'):
                 if unassignesub.get('included').get('data'):
@@ -977,24 +845,16 @@ class SensorMobileUnassigned(Entity):
                 self._outofbundle = f"{unassignesub.get('outofbundle').get('usedunits')} {unassignesub.get('outofbundle').get('unittype')}"
             self._mobileinternetonly = unassignesub.get('mobileinternetonly')               
                 
-            
-        
     async def async_will_remove_from_hass(self):
-        """Clean up after entity before removal."""
         _LOGGER.info("async_will_remove_from_hass " + NAME)
         self._data.clear_session()
 
-
     @property
     def icon(self) -> str:
-        """Shows the correct icon for container."""
         return "mdi:check-network-outline"
-        #alternative: 
-        #return "mdi:wifi_tethering_error"
         
     @property
     def unique_id(self) -> str:
-        """Return the name of the sensor."""
         return (
             f"{NAME} mobile {self._data._mobilemeter.get('mobileusage')[self._productid].get('unassigned').get('mobilesubscriptions')[self._subsid].get('mobile')}"
         )
@@ -1005,7 +865,6 @@ class SensorMobileUnassigned(Entity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        """Return the state attributes."""
         return {
             ATTR_ATTRIBUTION: NAME,
             "last update": self._last_update,
@@ -1029,22 +888,18 @@ class SensorMobileUnassigned(Entity):
 
     @property
     def device_info(self) -> dict:
-        """Return the device info."""
         return {
             "identifiers": {(NAME, self._data.unique_id)},
             "name": self._data.name,
             "manufacturer": NAME,
         }
 
-
     @property
     def unit(self) -> int:
-        """Unit"""
         return int
 
     @property
     def unit_of_measurement(self) -> str:
-        """Return the unit of measurement this sensor expresses itself in."""
         return "%"
 
     @property
@@ -1083,7 +938,6 @@ class SensorMobileAssigned(Entity):
 
     @property
     def state(self):
-        """Return the state of the sensor."""
         return self._used_percentage_data
 
     async def async_update(self):
@@ -1096,20 +950,12 @@ class SensorMobileAssigned(Entity):
         self._last_update =  productdetails.get('lastupdated')
         self._product = productdetails.get('label')
         self._period_end_date = productdetails.get('nextbillingdate')
-        # Parse the timestamp string into a datetime object
         original_datetime = datetime.strptime(self._period_end_date, _TELENET_DATETIME_FORMAT_MOBILE)
-
-        # Add one day to the datetime object
         new_datetime = original_datetime + timedelta(days=1)
-
-        # Format the new datetime object back to a string
         self._period_end_date = new_datetime.strftime(_TELENET_DATETIME_FORMAT_MOBILE)
-        # get shared sensor
         profile = productdetails.get('profiles')[self._profileid]
         
-        #todo: add checks on empty elements
         if profile:
-            
             assignesub = profile.get('mobilesubscriptions')[self._subsid]
             if assignesub:
                 if assignesub.get('included'):
@@ -1133,29 +979,20 @@ class SensorMobileAssigned(Entity):
                 if assignesub.get('outofbundle'):
                     self._outofbundle = f"{assignesub.get('outofbundle').get('usedunits')} {assignesub.get('outofbundle').get('unittype')}"
                 self._mobileinternetonly = assignesub.get('mobileinternetonly')    
-
                 self._firstname = profile.get('firstname')
                 self._lastname = profile.get('lastname')
                 self._role = profile.get('role')                
                 
-            
-        
     async def async_will_remove_from_hass(self):
-        """Clean up after entity before removal."""
         _LOGGER.info("async_will_remove_from_hass " + NAME)
         self._data.clear_session()
 
-
     @property
     def icon(self) -> str:
-        """Shows the correct icon for container."""
         return "mdi:check-network-outline"
-        #alternative: 
-        #return "mdi:wifi_tethering_error"
         
     @property
     def unique_id(self) -> str:
-        """Return the name of the sensor."""
         return (
             f"{NAME} mobile {self._data._mobilemeter.get('mobileusage')[self._productid].get('profiles')[self._profileid].get('mobilesubscriptions')[self._subsid].get('mobile')}"
         )
@@ -1166,7 +1003,6 @@ class SensorMobileAssigned(Entity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        """Return the state attributes."""
         return {
             ATTR_ATTRIBUTION: NAME,
             "last update": self._last_update,
@@ -1191,25 +1027,20 @@ class SensorMobileAssigned(Entity):
             "role": self._role
         }
 
-
     @property
     def device_info(self) -> dict:
-        """Return the device info."""
         return {
             "identifiers": {(NAME, self._data.unique_id)},
             "name": self._data.name,
             "manufacturer": NAME,
         }
 
-
     @property
     def unit(self) -> int:
-        """Unit"""
         return int
 
     @property
     def unit_of_measurement(self) -> str:
-        """Return the unit of measurement this sensor expresses itself in."""
         return "%"
 
     @property
@@ -1249,7 +1080,6 @@ class SensorMobile(Entity):
 
     @property
     def state(self):
-        """Return the state of the sensor."""
         return self._state
 
     async def async_update(self):
@@ -1271,13 +1101,8 @@ class SensorMobile(Entity):
         self._last_update =  mobileusage.get('lastUpdated')
         self._label = self._product = self._productSubscription.get('label')
         self._period_end_date = mobileusage.get('nextBillingDate')
-        # Parse the timestamp string into a datetime object
         original_datetime = datetime.strptime(self._period_end_date, _TELENET_DATETIME_FORMAT_MOBILE)
-
-        # Add one day to the datetime object
         new_datetime = original_datetime + timedelta(days=1)
-
-        # Format the new datetime object back to a string
         self._period_end_date = new_datetime.strftime(_TELENET_DATETIME_FORMAT_MOBILE)
         self._outofbundle = f"{mobileusage.get('outOfBundle').get('usedUnits')} {mobileusage.get('outOfBundle').get('unitType')}"
         self._number = self._identifier
@@ -1320,6 +1145,21 @@ class SensorMobile(Entity):
                 if 'remainingUnits' in data:
                     self._remaining_volume_data = f"{data.get('remainingUnits')} {data.get('unitType')}"
                 _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_data} {self._used_percentage_data} {self._remaining_volume_data}")
+
+            # Fallback voor monetaire databundels (bv. BASE 15 BoY waarbij €1 = 1 GB)
+            # Als data 0 of leeg is maar monetary wel gevuld, gebruik monetary als GB-equivalent
+            if (not self._used_percentage_data or self._used_percentage_data == 0) and \
+               not self._total_volume_data or self._total_volume_data == '0 MB':
+                monetary = mobileusage.get('total', {}).get('monetary', {})
+                if monetary and float(monetary.get('startUnits', '0').replace(',', '.')) > 0:
+                    total_gb = float(monetary.get('startUnits', '0').replace(',', '.'))
+                    remaining_gb = float(monetary.get('remainingUnits', '0').replace(',', '.'))
+                    used_gb = float(monetary.get('usedUnits', '0').replace(',', '.'))
+                    used_pct = monetary.get('usedPercentage', 0)
+                    self._total_volume_data = f"{total_gb:.2f} GB"
+                    self._remaining_volume_data = f"{remaining_gb:.2f} GB"
+                    self._used_percentage_data = used_pct
+                    _LOGGER.debug(f"Mobile {self._identifier}: Monetary fallback - Data {self._total_volume_data} {self._used_percentage_data}% {self._remaining_volume_data}")
                 
             if 'text' in usage:
                 if shared:
@@ -1361,21 +1201,15 @@ class SensorMobile(Entity):
                     self._state = self._used_percentage_voice
         
     async def async_will_remove_from_hass(self):
-        """Clean up after entity before removal."""
         _LOGGER.info("async_will_remove_from_hass " + NAME)
         self._data.clear_session()
 
-
     @property
     def icon(self) -> str:
-        """Shows the correct icon for container."""
         return "mdi:cellphone-information"
-        #alternative: 
-        #return "mdi:wifi_tethering_error"
         
     @property
     def unique_id(self) -> str:
-        """Return the name of the sensor."""
         return (
             f"{NAME} mobile {self._productSubscription.get('identifier')}"
         )
@@ -1386,7 +1220,6 @@ class SensorMobile(Entity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        """Return the state attributes."""
         return {
             ATTR_ATTRIBUTION: NAME,
             "label": self._label,
@@ -1416,7 +1249,6 @@ class SensorMobile(Entity):
 
     @property
     def device_info(self) -> dict:
-        """Return the device info."""
         return {
             "identifiers": {(NAME, self._data.unique_id)},
             "name": self._data.name,
@@ -1425,12 +1257,10 @@ class SensorMobile(Entity):
 
     @property
     def unit(self) -> int:
-        """Unit"""
         return int
 
     @property
     def unit_of_measurement(self) -> str:
-        """Return the unit of measurement this sensor expresses itself in."""
         return "%"
 
     @property
