@@ -105,8 +105,10 @@ class TelenetSession(object):
         try:
             maintenance = self.callTelenet(url=self.cfg["maintenance_url"], caller="login").json()
             assert not maintenance["enabled"]
-        except Exception:
-            _LOGGER.debug(f"[login] Maintenance check skipped or failed for {self.provider}")
+        except (KeyError, AssertionError):
+            _LOGGER.debug(f"[login] Maintenance check skipped for {self.provider}")
+        except Exception as e:
+            _LOGGER.warning(f"[login] Maintenance check failed for {self.provider}: {e}")
 
         response = self.callTelenet(url=f"{self.api_url}/ocapi/oauth/userdetails", caller="login", expectedStatusCode=None)
         if response.status_code == 200:
@@ -114,7 +116,7 @@ class TelenetSession(object):
             return
         assert response.status_code == 401
         _LOGGER.debug(f"Login response to split state, nonce: {response.text} - ({response.status_code}) - {response.headers}")
-        state, nonce = response.text.split(",", maxsplit=2)
+        _state, _nonce = response.text.split(",", maxsplit=2)
 
         # Fetch the initial state token
         # BASE returns 200 directly (follows redirect internally), Telenet returns 302
@@ -160,13 +162,9 @@ class TelenetSession(object):
         challenge_response = self.callTelenet(
             url=f"{self.secure_url}/idp/idx/challenge",
             data=json.dumps({
-                "authenticator":
-                    {
-                        "id": password_id
-                    },
-                    "stateHandle": state_handle
-                }
-            ),
+                "authenticator": {"id": password_id},
+                "stateHandle": state_handle
+            }),
             method=HttpMethod.POST,
             caller="login"
         )
@@ -175,13 +173,9 @@ class TelenetSession(object):
         answer_response = self.callTelenet(
             url=f"{self.secure_url}/idp/idx/challenge/answer",
             data=json.dumps({
-                "credentials":
-                    {
-                        "passcode": password
-                    },
-                    "stateHandle": state_handle
-                }
-            ),
+                "credentials": {"passcode": password},
+                "stateHandle": state_handle
+            }),
             method=HttpMethod.POST,
             caller="login"
         )
