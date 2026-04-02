@@ -7,7 +7,7 @@ from homeassistant.const import CONF_USERNAME
 from homeassistant.util import Throttle
 
 from . import DOMAIN, NAME
-from .utils import *
+from .utils import TelenetSession, check_settings
 from .const import PROVIDER_TELENET
 
 _LOGGER = logging.getLogger(__name__)
@@ -64,8 +64,6 @@ class ComponentSwitch():
 
 
     async def handle_switch_wireless(self, enableWifi):
-        if not(self._session):
-            self._session = TelenetSession(provider=self._provider)
         await self._hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
         v2 = await self._hass.async_add_executor_job(lambda: self._session.apiVersion2())
         if not v2:
@@ -98,9 +96,7 @@ class ComponentSwitch():
             enableWifi = wifiEnabled
 
         _LOGGER.debug(f"wifi change required: wifiEnabled: {wifiEnabled}, enableWifi: {enableWifi}")
-
         await self._hass.async_add_executor_job(lambda: self._session.switchWifi(enableWifi, internetProductIdentifier, modemMac, customerLocationId))
-
         _LOGGER.debug(f"{NAME} handle_switch_wifi switch executed, old state: wifiEnabled: {wifiEnabled}, new state: enableWifi: {enableWifi}")
         
         wifiDetails = await self._hass.async_add_executor_job(lambda: self._session.wifidetails(internetProductIdentifier, modemMac))
@@ -117,8 +113,6 @@ class ComponentSwitch():
         return self.unique_id
     
     async def force_update(self):
-        if not(self._session):
-            self._session = TelenetSession(provider=self._provider)
         await self._hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
         v2 = await self._hass.async_add_executor_job(lambda: self._session.apiVersion2())
         if not v2:
