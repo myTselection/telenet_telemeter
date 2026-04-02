@@ -734,7 +734,7 @@ class ComponentMobileShared(Entity):
         
     @property
     def unique_id(self) -> str:
-        return f"{NAME} mobile shared"
+        return f"{NAME} mobile shared {self._productid}"
 
     @property
     def name(self) -> str:
@@ -1149,7 +1149,7 @@ class SensorMobile(Entity):
             # Fallback voor monetaire databundels (bv. BASE 15 BoY waarbij €1 = 1 GB)
             # Als data 0 of leeg is maar monetary wel gevuld, gebruik monetary als GB-equivalent
             if (not self._used_percentage_data or self._used_percentage_data == 0) and \
-               not self._total_volume_data or self._total_volume_data == '0 MB':
+               (not self._total_volume_data or self._total_volume_data == '0 MB'):
                 monetary = mobileusage.get('total', {}).get('monetary', {})
                 if monetary and float(monetary.get('startUnits', '0').replace(',', '.')) > 0:
                     total_gb = float(monetary.get('startUnits', '0').replace(',', '.'))
