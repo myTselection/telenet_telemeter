@@ -56,8 +56,8 @@
     },
     "services": {
         "reboot_internet": {
-            "name": "reboot_internet",
-            "description": "Reboot the internet modem"
+            "name": "reštartovať_internet",
+            "description": "Reštartujte internetový modem"
         }
     }
 }
