@@ -4,7 +4,6 @@ from collections import OrderedDict
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.const import (
     CONF_NAME,
@@ -69,29 +68,26 @@ class Mixin:
             self._errors["base"] = "no_valid_settings"
             return False
 
-        username = None
         if user_input.get("username"):
             username = user_input.get(CONF_USERNAME)
         else:
             self._errors["base"] = "missing username"
 
-        password = None
         if user_input.get("password"):
             password = user_input.get(CONF_PASSWORD)
         else:
             self._errors["base"] = "missing password"
 
-        internet = None
-        if user_input.get("internet"):
-            internet = user_input.get("internet")
-        else:
+        # Use explicit None check so False (unchecked) is valid
+        internet = user_input.get("internet")
+        if internet is None:
             self._errors["base"] = "missing internet"
 
-        mobile = None
-        if user_input.get("mobile"):
-            mobile = user_input.get("mobile")
-        else:
+        mobile = user_input.get("mobile")
+        if mobile is None:
             self._errors["base"] = "missing mobile"
+
+        return len(self._errors) == 0
 
 
 class ComponentFlowHandler(Mixin, config_entries.ConfigFlow, domain=DOMAIN):
@@ -109,6 +105,8 @@ class ComponentFlowHandler(Mixin, config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             await self.test_setup(user_input)
+            if self._errors:
+                return await self._show_config_form(user_input)
             provider = user_input.get("provider", PROVIDER_TELENET)
             return self.async_create_entry(title=f'{NAME} {provider} {user_input.get("username","")}', data=user_input)
 
@@ -135,7 +133,6 @@ class ComponentOptionsHandler(config_entries.OptionsFlow, Mixin):
         self._errors = {}
 
     async def async_step_init(self, user_input=None):
-
         return self.async_show_form(
             step_id="edit",
             data_schema=vol.Schema(create_schema(self.config_entry, option=True)),
@@ -144,7 +141,7 @@ class ComponentOptionsHandler(config_entries.OptionsFlow, Mixin):
 
     async def async_step_edit(self, user_input):
         if user_input is not None:
-            await self.test_setup(user_input)
+            ok = await self.test_setup(user_input)
             if ok:
                 self.hass.config_entries.async_update_entry(
                     self.config_entry, data=user_input
