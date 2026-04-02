@@ -102,11 +102,8 @@ def register_services(hass, config_entry):
         password = config.get("password")
         provider = config.get("provider", PROVIDER_TELENET)
         session = TelenetSession(provider=provider)
-        if not(session):
-            session = TelenetSession(provider=provider)
 
-        if session:
-            await hass.async_add_executor_job(lambda: session.login(username, password))
+        await hass.async_add_executor_job(lambda: session.login(username, password))
         provider_name = PROVIDER_NAMES.get(provider, NAME)
         _LOGGER.debug(f"{provider_name} reboot_internet login completed")
         v2 = await hass.async_add_executor_job(lambda: session.apiVersion2())
