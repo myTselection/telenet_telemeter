@@ -7,8 +7,8 @@
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/myTselection/telenet_telemeter.svg)](https://github.com/myTselection/telenet_telemeter/graphs/commit-activity)
 
 
-# Telenet Telemeter Home Assistant integration
-[Telenet Telemeter](https://www2.telenet.be/nl/business/klantenservice/raadpleeg-uw-internetverbruik/) Home Assistant custom component. This custom component has been built from the ground up to bring your Telenet internet and mobile phone usage details into Home Assistant to help you towards a better follow up on your usage information. This integration is built against the public website provided by Telenet Belgium and has not been tested for any other countries.
+# Telenet / BASE Telemeter Home Assistant integration
+[Telenet Telemeter](https://www2.telenet.be/nl/business/klantenservice/raadpleeg-uw-internetverbruik/) Home Assistant custom component also supporting [BASE Telemeter](https://www.base.be/nl/klantenzone/internet/je-internetverbruik.html). This custom component has been built from the ground up to bring your Telenet & Base internet and mobile phone usage details into Home Assistant to help you towards a better follow up on your usage information. This integration is built against the public website provided by Telenet and Base Belgium and has not been tested for any other countries. BASE is owned by Telenet and uses similar tools to provide the customer usage information, as a result, this integration supports both products since release R3.0.
 
 This integration is in no way affiliated with Telenet Belgium. 
 | :warning: Please don't report issues with this integration to Telenet, they will not be able to support you.** |
@@ -16,7 +16,7 @@ This integration is in no way affiliated with Telenet Belgium.
 
 Some discussion on this topic can be found within the [Home Assistant Forum](https://community.home-assistant.io/t/telenet-telemeter-isp-monthly-data-usage/444810)
 
-Based on python application of [Killian Meersman](https://github.com/KillianMeersman/telemeter).
+Originally based on python application of [Killian Meersman](https://github.com/KillianMeersman/telemeter).
 <p align="left"><img src="./logo.png" width="64"/></p>
 
 ## Installation
@@ -24,7 +24,7 @@ Based on python application of [Killian Meersman](https://github.com/KillianMeer
   - [![Open your Home Assistant instance and open the repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg?style=flat-square)](https://my.home-assistant.io/redirect/hacs_repository/?owner=myTselection&repository=telenet_telemeter&category=integration)
 - Restart Home Assistant
 - Add 'Telenet Telemeter' integration via HA Settings > 'Devices and Services' > 'Integrations'
-- Provide Telenet username and password
+- Provide Telenet or BASE username and password
 - A sensor `sensor.telenet_telemeter_internet_[w123456]` should become available with the percentage of data left and extra attributes on usage and period start/end etc.
   - For users having a FUP 'unlimited' data, your actual 'peak' data usage versus the [service limit](https://www2.telenet.be/content/www-telenet-be/nl/klantenservice/wat-is-telenet-netwerkbeheer.html) (eg 750GB/3TB) will be used in order to calculate your overal 'usage' status, so you can denote if you are close to be switched into a limited/smallband mode.
   - Unlimited (FUP) users should use `peak_usage` and `offpeak_usage` attributes, limited (CAP) users should use `includedvolume_usage` attribute.
