@@ -1,10 +1,11 @@
 {
     "config": {
-        "title": "Telenet Telemeter",
+        "title": "Telenet / BASE Telemeter",
         "step": {
             "user": {
-                "description": "Stel een Telenet Telemeter-sensor in, gebruikersnaam en wachtwoord zijn vereist. Geef aan of internet- en/of mobiel gebruik gevolgd moet worden.",
+                "description": "Stel een Telenet of BASE Telemeter-sensor in. Kies je provider, vul je gebruikersnaam en wachtwoord in, en geef aan of internet- en/of mobiel gebruik gevolgd moet worden.",
                 "data": {
+                    "provider": "Provider",
                     "username": "E-mail",
                     "password": "Wachtwoord",
                     "internet": "Internet",
@@ -12,8 +13,9 @@
                 }
             },
             "edit": {
-                "description": "Bewerk de instelling van een Telenet Telemeter-sensor, gebruikersnaam en wachtwoord zijn vereist. Geef aan of internet- en/of mobiel gebruik gevolgd moet worden.",
+                "description": "Bewerk de Telenet of BASE Telemeter-sensorinstelling.",
                 "data": {
+                    "provider": "Provider",
                     "username": "E-mail",
                     "password": "Wachtwoord",
                     "internet": "Internet",
@@ -22,8 +24,8 @@
             }
         },
         "error": {
-            "missing username": "Geef een geldige Telenet-gebruikersnaam (e-mail) op",
-            "missing password": "Geef een geldig Telenet-wachtwoord op",
+            "missing username": "Geef een geldige gebruikersnaam (e-mail) op",
+            "missing password": "Geef een geldig wachtwoord op",
             "missing internet": "Geef aan of internetgebruik gevolgd moet worden",
             "missing mobile": "Geef aan of mobiel gebruik gevolgd moet worden",
             "missing data options handler": "Optie-handler is mislukt",
@@ -33,8 +35,9 @@
     "options": {
         "step": {
             "edit": {
-                "description": "Bewerk de instelling van een Telenet Telemeter-sensor, gebruikersnaam en wachtwoord zijn vereist. Geef aan of internet- en/of mobiel gebruik gevolgd moet worden.",
+                "description": "Bewerk de Telenet of BASE Telemeter-sensorinstelling.",
                 "data": {
+                    "provider": "Provider",
                     "username": "E-mail",
                     "password": "Wachtwoord",
                     "internet": "Internet",
@@ -43,8 +46,8 @@
             }
         },
         "error": {
-            "missing username": "Geef een geldige Telenet-gebruikersnaam (e-mail) op",
-            "missing password": "Geef een geldig Telenet-wachtwoord op",
+            "missing username": "Geef een geldige gebruikersnaam (e-mail) op",
+            "missing password": "Geef een geldig wachtwoord op",
             "missing internet": "Geef aan of internetgebruik gevolgd moet worden",
             "missing mobile": "Geef aan of mobiel gebruik gevolgd moet worden",
             "missing data options handler": "Optie-handler is mislukt",

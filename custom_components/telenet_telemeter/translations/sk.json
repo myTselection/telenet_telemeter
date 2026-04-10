@@ -1,30 +1,31 @@
 {
     "config": {
-        "title": "Telenet Telemeter",
+        "title": "Telenet / BASE Telemeter",
         "step": {
             "user": {
-                "description": "Vyžaduje sa nastavenie snímača Telenet Telementer, používateľské meno a heslo. Uveďte, či sa má sledovať používanie internetu a/alebo mobilu.",
+                "description": "Nastavte snímač Telenet alebo BASE Telemeter. Vyberte svojho poskytovateľa, zadajte používateľské meno a heslo a uveďte, či sa má sledovať používanie internetu a/alebo mobilu.",
                 "data": {
+                    "provider": "Poskytovateľ",
                     "username": "Používateľské meno",
                     "password": "Heslo",
-					"internet": "Internet",
-					"mobile": "Mobil"
+                    "internet": "Internet",
+                    "mobile": "Mobil"
                 }
             },
             "edit": {
-                "description": "Upraviť nastavenie Vyžaduje sa snímač telenetového telemetra, používateľské meno a heslo. Uveďte, či sa má sledovať používanie internetu a/alebo mobilu.",
+                "description": "Upraviť nastavenie snímača Telenet alebo BASE Telemeter.",
                 "data": {
+                    "provider": "Poskytovateľ",
                     "username": "Používateľské meno",
                     "password": "Heslo",
-					"internet": "Internet",
-					"mobile": "Mobil"
+                    "internet": "Internet",
+                    "mobile": "Mobil"
                 }
             }
-
         },
         "error": {
-            "missing username": "Zadajte platné používateľské meno služby Telenet",
-            "missing password": "Zadajte platné heslo služby Telenet",
+            "missing username": "Zadajte platné používateľské meno",
+            "missing password": "Zadajte platné heslo",
             "missing internet": "Uveďte, či sa má sledovať používanie internetu",
             "missing mobile": "Uveďte, či sa má sledovať používanie mobilných zariadení",
             "missing data options handler": "Obslužný program možností zlyhal",
@@ -34,18 +35,19 @@
     "options": {
         "step": {
             "edit": {
-                "description": "Upraviť nastavenie Vyžaduje sa snímač telenetového telemetra, používateľské meno a heslo. Uveďte, či sa má sledovať používanie internetu a/alebo mobilu.",
+                "description": "Upraviť nastavenie snímača Telenet alebo BASE Telemeter.",
                 "data": {
+                    "provider": "Poskytovateľ",
                     "username": "Používateľské meno",
                     "password": "Heslo",
-					"internet": "Internet",
-					"mobile": "Mobil"
+                    "internet": "Internet",
+                    "mobile": "Mobil"
                 }
             }
         },
         "error": {
-            "missing username": "Zadajte platné používateľské meno služby Telenet",
-            "missing password": "Zadajte platné heslo služby Telenet",
+            "missing username": "Zadajte platné používateľské meno",
+            "missing password": "Zadajte platné heslo",
             "missing internet": "Uveďte, či sa má sledovať používanie internetu",
             "missing mobile": "Uveďte, či sa má sledovať používanie mobilných zariadení",
             "missing data options handler": "Obslužný program možností zlyhal",
@@ -54,8 +56,8 @@
     },
     "services": {
         "reboot_internet": {
-            "name": "reboot_internet",
-            "description": "Reboot the internet modem"
+            "name": "reštartovať_internet",
+            "description": "Reštartujte internetový modem"
         }
     }
 }
