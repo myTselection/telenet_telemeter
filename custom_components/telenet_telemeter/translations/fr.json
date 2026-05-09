@@ -1,10 +1,11 @@
 {
     "config": {
-        "title": "Telenet Telemeter",
+        "title": "Telenet / BASE Telemeter",
         "step": {
             "user": {
-                "description": "Configurer un capteur Telenet Telemeter, nom d'utilisateur et mot de passe requis. Veuillez indiquer si l'utilisation d'internet et/ou de mobile doit être suivie.",
+                "description": "Configurez un capteur Telenet ou BASE Telemeter. Choisissez votre fournisseur, entrez votre nom d'utilisateur et mot de passe, et indiquez si l'utilisation d'internet et/ou de mobile doit être suivie.",
                 "data": {
+                    "provider": "Fournisseur",
                     "username": "E-mail",
                     "password": "Mot de passe",
                     "internet": "Internet",
@@ -12,8 +13,9 @@
                 }
             },
             "edit": {
-                "description": "Modifier la configuration d'un capteur Telenet Telemeter, nom d'utilisateur et mot de passe requis. Veuillez indiquer si l'utilisation d'internet et/ou de mobile doit être suivie.",
+                "description": "Modifier la configuration du capteur Telenet ou BASE Telemeter.",
                 "data": {
+                    "provider": "Fournisseur",
                     "username": "E-mail",
                     "password": "Mot de passe",
                     "internet": "Internet",
@@ -22,8 +24,8 @@
             }
         },
         "error": {
-            "missing username": "Veuillez fournir un nom d'utilisateur Telenet valide (e-mail)",
-            "missing password": "Veuillez fournir un mot de passe Telenet valide",
+            "missing username": "Veuillez fournir un nom d'utilisateur valide (e-mail)",
+            "missing password": "Veuillez fournir un mot de passe valide",
             "missing internet": "Veuillez indiquer si l'utilisation d'internet doit être suivie",
             "missing mobile": "Veuillez indiquer si l'utilisation mobile doit être suivie",
             "missing data options handler": "Le gestionnaire d'options a échoué",
@@ -33,8 +35,9 @@
     "options": {
         "step": {
             "edit": {
-                "description": "Modifier la configuration d'un capteur Telenet Telemeter, nom d'utilisateur et mot de passe requis. Veuillez indiquer si l'utilisation d'internet et/ou de mobile doit être suivie.",
+                "description": "Modifier la configuration du capteur Telenet ou BASE Telemeter.",
                 "data": {
+                    "provider": "Fournisseur",
                     "username": "E-mail",
                     "password": "Mot de passe",
                     "internet": "Internet",
@@ -43,8 +46,8 @@
             }
         },
         "error": {
-            "missing username": "Veuillez fournir un nom d'utilisateur Telenet valide (e-mail)",
-            "missing password": "Veuillez fournir un mot de passe Telenet valide",
+            "missing username": "Veuillez fournir un nom d'utilisateur valide (e-mail)",
+            "missing password": "Veuillez fournir un mot de passe valide",
             "missing internet": "Veuillez indiquer si l'utilisation d'internet doit être suivie",
             "missing mobile": "Veuillez indiquer si l'utilisation mobile doit être suivie",
             "missing data options handler": "Le gestionnaire d'options a échoué",
