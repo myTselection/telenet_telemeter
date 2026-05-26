@@ -42,7 +42,8 @@ async def dry_setup(hass, config_entry, async_add_devices):
 
     check_settings(config, hass)
     sensors = []
-    
+    data_internet = None
+
     if internet:
         data_internet = ComponentData(
             username,
@@ -61,6 +62,9 @@ async def dry_setup(hass, config_entry, async_add_devices):
         binarysensor = SensorPeak(data_internet, hass)
         await binarysensor.async_update()
         sensors.append(binarysensor)
+        announcements = SensorAnnouncements(data_internet, hass)
+        await announcements.async_update()
+        sensors.append(announcements)
     if mobile:
         data_mobile = ComponentData(
             username,
@@ -100,6 +104,10 @@ async def dry_setup(hass, config_entry, async_add_devices):
                 _LOGGER.debug("Mobile productSubscription " +  productSubscription.get("identifier") + " [" +  productSubscription.get("label") + "]")
                 sensor = SensorMobile(data_mobile, productSubscription, hass)
                 sensors.append(sensor)
+        if not data_internet:
+            announcements = SensorAnnouncements(data_mobile, hass)
+            await announcements.async_update()
+            sensors.append(announcements)
     async_add_devices(sensors)
 
 
@@ -155,6 +163,7 @@ class ComponentData:
         self._mobilemeter = None
         self._producturl = None
         self._product_details = None
+        self._inbox_messages = None
         self._v2 = None
         self._hass = hass
         
@@ -230,6 +239,13 @@ class ComponentData:
                 self._product_details = await self._hass.async_add_executor_job(lambda: self._session.telemeter_product_details(self._producturl))
                 assert self._product_details is not None
                 _LOGGER.debug(f"ComponentData init telemeter productdetails: {self._product_details}")
+            try:
+                self._inbox_messages = await self._hass.async_add_executor_job(lambda: self._session.inboxMessages())
+                _LOGGER.debug(f"ComponentData init inbox messages: {self._inbox_messages}")
+            except Exception as e:
+                _LOGGER.warning(f"Failed to fetch inbox messages: {e}")
+                self._inbox_messages = None
+
             if self._mobile:
                 if not self._v2:
                     self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.mobile())
@@ -286,6 +302,7 @@ class SensorInternet(Entity):
         self._modemMac = None
         self._wifiEnabled = None
         self._wifreeEnabled = None
+        self._usage_gb = None
 
     @property
     def state(self):
@@ -412,8 +429,10 @@ class SensorInternet(Entity):
             _LOGGER.debug(f"SensorInternet _extended_volume: {self._extended_volume}")
             _LOGGER.debug(f"SensorInternet _used_percentage: {self._used_percentage}")
             _LOGGER.debug(f"SensorInternet _squeezed: {self._squeezed}")
-            
-        
+
+        if self._total_volume and self._used_percentage is not None:
+            self._usage_gb = round(self._used_percentage / 100 * self._total_volume, 2)
+
     async def async_will_remove_from_hass(self):
         """Clean up after entity before removal."""
         _LOGGER.info("async_will_remove_from_hass " + NAME)
@@ -439,13 +458,14 @@ class SensorInternet(Entity):
             ATTR_ATTRIBUTION: NAME,
             "last update": self._last_update,
             "used_percentage": self._used_percentage,
+            "usage_gb": self._usage_gb,
             "included_volume": self._included_volume,
             "extended_volume": self._extended_volume,
             "total_volume": self._total_volume,
             "wifree_usage": self._wifree_usage,
             "includedvolume_usage": self._includedvolume_usage,
             "extendedvolume_usage": self._extendedvolume_usage,
-            "peak_usage": self._peak_usage, 
+            "peak_usage": self._peak_usage,
             "offpeak_usage": self._offpeak_usage,
             "squeezed": self._squeezed,
             "period_start": self._period_start_date,
@@ -479,7 +499,7 @@ class SensorInternet(Entity):
     @property
     def friendly_name(self) -> str:
         return self.unique_id
-        
+
 
 class SensorPeak(BinarySensorEntity):
     def __init__(self, data, hass):
@@ -1262,6 +1282,82 @@ class SensorMobile(Entity):
     @property
     def unit_of_measurement(self) -> str:
         return "%"
+
+    @property
+    def friendly_name(self) -> str:
+        return self.unique_id
+
+
+class SensorAnnouncements(Entity):
+    def __init__(self, data, hass):
+        self._data = data
+        self._hass = hass
+        self._last_update = None
+        self._unread_count = None
+        self._messages = None
+
+    @property
+    def state(self):
+        return self._unread_count
+
+    async def async_update(self):
+        await self._data.update()
+        self._last_update = datetime.now().isoformat()
+        inbox = self._data._inbox_messages
+        if inbox is None:
+            self._unread_count = None
+            self._messages = None
+            return
+
+        messages = inbox if isinstance(inbox, list) else inbox.get("messages", [])
+        if messages is None:
+            messages = []
+
+        self._messages = [
+            {
+                "messageId": m.get("messageId") or m.get("id"),
+                "title": m.get("title"),
+                "body": m.get("body") or m.get("content"),
+                "type": m.get("type"),
+                "createdAt": m.get("createdAt") or m.get("publishedAt"),
+                "read": m.get("read", False),
+            }
+            for m in messages
+        ]
+        self._unread_count = sum(1 for m in self._messages if not m.get("read"))
+
+    async def async_will_remove_from_hass(self):
+        _LOGGER.info("async_will_remove_from_hass " + NAME)
+        self._data.clear_session()
+
+    @property
+    def icon(self) -> str:
+        return "mdi:bell-outline"
+
+    @property
+    def unique_id(self) -> str:
+        return f"{NAME} announcements {self._data._username}"
+
+    @property
+    def name(self) -> str:
+        return self.unique_id
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return {
+            ATTR_ATTRIBUTION: NAME,
+            "last_update": self._last_update,
+            "unread_count": self._unread_count,
+            "messages": self._messages,
+        }
+
+    @property
+    def device_info(self) -> dict:
+        return {
+            "identifiers": {(NAME, self._data.unique_id)},
+            "name": self._data.name,
+            "manufacturer": NAME,
+        }
 
     @property
     def friendly_name(self) -> str:
