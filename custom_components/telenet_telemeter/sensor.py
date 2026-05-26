@@ -298,6 +298,7 @@ class SensorInternet(Entity):
         self._upload_speed = None
         self._peak_usage = None
         self._offpeak_usage = None
+        self._total_downloaded_gb = None
         self._squeezed = False
         self._modemMac = None
         self._wifiEnabled = None
@@ -403,10 +404,11 @@ class SensorInternet(Entity):
                 self._extendedvolume_usage = 0
             else:
                 self._wifree_usage = 0
-                self._peak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('peak', 0) or 0, 1)
+                self._peak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('peak', 0) or 0, 2)
                 self._includedvolume_usage = self._peak_usage
                 self._extendedvolume_usage = 0
-                self._offpeak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('offPeak', 0) or 0, 1)
+                self._offpeak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('offPeak', 0) or 0, 2)
+                self._total_downloaded_gb = round(self._peak_usage + self._offpeak_usage, 2)
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
                 if not self._data._v2:
@@ -430,10 +432,14 @@ class SensorInternet(Entity):
             _LOGGER.debug(f"SensorInternet _used_percentage: {self._used_percentage}")
             _LOGGER.debug(f"SensorInternet _squeezed: {self._squeezed}")
 
-        # For TURBO plans peak_usage is set; usage = peak + offpeak.
-        # For CAP plans derive from percentage × total_volume.
+        # usage_gb = authoritative FUP/CAP counter from productUsage (only peak counts).
+        # total_downloaded_gb = peak + offPeak (raw bytes, already set for v2 TURBO/FUP).
         if self._peak_usage is not None and self._offpeak_usage is not None:
-            self._usage_gb = round((self._peak_usage or 0) + (self._offpeak_usage or 0), 2)
+            if self._data._v2:
+                fup_units = (self._data._telemeter.get('internet') or {}).get('totalUsage', {}).get('units')
+                self._usage_gb = round(fup_units, 2) if fup_units is not None else round(self._peak_usage, 2)
+            else:
+                self._usage_gb = round((self._peak_usage or 0) + (self._offpeak_usage or 0), 2)
         elif self._total_volume and self._used_percentage is not None:
             self._usage_gb = round(self._used_percentage / 100 * self._total_volume, 2)
 
@@ -463,6 +469,9 @@ class SensorInternet(Entity):
             "last update": self._last_update,
             "used_percentage": self._used_percentage,
             "usage_gb": self._usage_gb,
+            "peak_usage_gb": self._peak_usage,
+            "offpeak_usage_gb": self._offpeak_usage,
+            "total_downloaded_gb": self._total_downloaded_gb,
             "included_volume": self._included_volume,
             "extended_volume": self._extended_volume,
             "total_volume": self._total_volume,
