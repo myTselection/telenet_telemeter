@@ -307,7 +307,7 @@ class SensorInternet(Entity):
     @property
     def state(self):
         """Return the state of the sensor."""
-        return self._used_percentage
+        return self._usage_gb
 
     async def async_update(self):
         await self._data.update()
@@ -430,7 +430,11 @@ class SensorInternet(Entity):
             _LOGGER.debug(f"SensorInternet _used_percentage: {self._used_percentage}")
             _LOGGER.debug(f"SensorInternet _squeezed: {self._squeezed}")
 
-        if self._total_volume and self._used_percentage is not None:
+        # For TURBO plans peak_usage is set; usage = peak + offpeak.
+        # For CAP plans derive from percentage × total_volume.
+        if self._peak_usage is not None and self._offpeak_usage is not None:
+            self._usage_gb = round((self._peak_usage or 0) + (self._offpeak_usage or 0), 2)
+        elif self._total_volume and self._used_percentage is not None:
             self._usage_gb = round(self._used_percentage / 100 * self._total_volume, 2)
 
     async def async_will_remove_from_hass(self):
@@ -494,7 +498,7 @@ class SensorInternet(Entity):
 
     @property
     def unit_of_measurement(self) -> str:
-        return "%"
+        return "GB"
 
     @property
     def friendly_name(self) -> str:
@@ -1097,10 +1101,28 @@ class SensorMobile(Entity):
         self._bundle_remaining_volume_data = None
         self._bundle_total_volume_text = None
         self._bundle_total_volume_voice = None
+        self._usage_gb = None
 
     @property
     def state(self):
-        return self._state
+        return self._usage_gb if self._usage_gb is not None else self._state
+
+    @staticmethod
+    def _parse_usage_gb(volume_str):
+        """Parse '40.61 GB' / '7780 MB' to a float in GB, or None."""
+        if not volume_str:
+            return None
+        try:
+            parts = str(volume_str).strip().split()
+            val = float(parts[0].replace(',', '.'))
+            unit = parts[1].upper() if len(parts) > 1 else "GB"
+            if unit == "KB":
+                return round(val / 1024 / 1024, 2)
+            if unit == "MB":
+                return round(val / 1024, 2)
+            return round(val, 2)
+        except (ValueError, IndexError):
+            return None
 
     async def async_update(self):
         await self._data.update()
@@ -1223,6 +1245,8 @@ class SensorMobile(Entity):
                     self._state = self._bundle_used_percentage_data
                 else:
                     self._state = self._used_percentage_voice
+
+            self._usage_gb = self._parse_usage_gb(self._total_volume_data)
         
     async def async_will_remove_from_hass(self):
         _LOGGER.info("async_will_remove_from_hass " + NAME)
@@ -1268,7 +1292,8 @@ class SensorMobile(Entity):
             "bundle_used_percentage_data" : self._bundle_used_percentage_data,
             "bundle_remaining_volume_data" : self._bundle_remaining_volume_data,
             "bundle_total_volume_text" : self._bundle_total_volume_text,
-            "bundle_total_volume_voice" : self._bundle_total_volume_voice
+            "bundle_total_volume_voice" : self._bundle_total_volume_voice,
+            "usage_gb": self._usage_gb,
         }
 
     @property
@@ -1285,7 +1310,7 @@ class SensorMobile(Entity):
 
     @property
     def unit_of_measurement(self) -> str:
-        return "%"
+        return "GB"
 
     @property
     def friendly_name(self) -> str:
