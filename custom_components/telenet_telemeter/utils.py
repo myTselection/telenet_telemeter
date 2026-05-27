@@ -70,6 +70,7 @@ class TelenetSession(object):
         self.s.headers["Referrer"] = self.cfg["referrer"]
 
     def callTelenet(self, url, caller = "Not set", expectedStatusCode = 200, data = None, printResponse = False, method : HttpMethod  = HttpMethod.GET, allowRedirects = True):
+        response = None
         try:
             if method == HttpMethod.GET:
                 _LOGGER.debug(f"[{caller}] Calling GET {url}")
@@ -92,7 +93,8 @@ class TelenetSession(object):
             if expectedStatusCode != None:
                 assert response.status_code == expectedStatusCode
         except Exception as e:
-            _LOGGER.error(f"[{caller}]: Failed to call [{method}]({url}). Statuscode was {response.status_code}. Exception was {getattr(e, 'message', repr(e))}")
+            status = response.status_code if response is not None else "N/A"
+            _LOGGER.error(f"[{caller}]: Failed to call [{method}]({url}). Statuscode was {status}. Exception was {getattr(e, 'message', repr(e))}")
         return response
 
     

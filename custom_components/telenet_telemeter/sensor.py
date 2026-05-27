@@ -129,7 +129,19 @@ async def dry_setup(hass, config_entry, async_add_devices):
             for productSubscription in data_mobile._mobilemeter:
                 _LOGGER.debug("Mobile productSubscription " +  productSubscription.get("identifier") + " [" +  productSubscription.get("label") + "]")
                 sensor = SensorMobile(data_mobile, productSubscription, hass)
+                await sensor.async_update()
                 sensors.append(sensor)
+                # Sub-sensors: each exposes one metric as a separate HA entity
+                sub_defs = [
+                    ("period_days_left",      "days left",    "days", "mdi:calendar-clock"),
+                    ("max_data_gb",           "max data",     "GB",   "mdi:database"),
+                    ("used_percentage_data",  "usage %",      "%",    "mdi:percent"),
+                    ("voice_used_minutes",    "voice used",   "min",  "mdi:phone-outgoing"),
+                    ("last_update_formatted", "last update",  None,   "mdi:clock-outline"),
+                ]
+                for field, suffix, unit, icon in sub_defs:
+                    sub = SensorMobileAttribute(data_mobile, productSubscription, hass, field, suffix, unit, icon)
+                    sensors.append(sub)
         if not data_internet:
             announcements = SensorAnnouncements(data_mobile, hass)
             await announcements.async_update()
@@ -191,6 +203,7 @@ class ComponentData:
         self._product_details = None
         self._inbox_messages = None
         self._v2 = None
+        self._mobile_parsed = {}
         self._hass = hass
         
     async def _forced_update(self):
@@ -1315,6 +1328,20 @@ class SensorMobile(Entity):
                 self._voice_max_minutes = _parse_eu_float(start_min) if start_min is not None else None
         self._last_update_formatted = _format_last_update(mobileusage.get('lastUpdated'))
 
+        # Store parsed values in shared cache for sub-sensors
+        self._data._mobile_parsed[self._identifier] = {
+            'usage_gb': self._usage_gb,
+            'used_percentage_data': self._used_percentage_data,
+            'period_days_left': self._period_days_left,
+            'max_data_gb': self._max_data_gb,
+            'data_unlimited': self._data_unlimited,
+            'has_voice': self._has_voice,
+            'voice_used_minutes': self._voice_used_minutes,
+            'voice_max_minutes': self._voice_max_minutes,
+            'voice_unlimited': self._voice_unlimited,
+            'last_update_formatted': self._last_update_formatted,
+        }
+
     async def async_will_remove_from_hass(self):
         _LOGGER.info("async_will_remove_from_hass " + NAME)
         self._data.clear_session()
@@ -1322,7 +1349,7 @@ class SensorMobile(Entity):
     @property
     def icon(self) -> str:
         return "mdi:cellphone-information"
-        
+
     @property
     def unique_id(self) -> str:
         label = str(self._productSubscription.get('label', '')).split('/')[0].strip()
@@ -1386,6 +1413,67 @@ class SensorMobile(Entity):
     @property
     def unit_of_measurement(self) -> str:
         return "GB"
+
+    @property
+    def friendly_name(self) -> str:
+        return self.unique_id
+
+
+class SensorMobileAttribute(Entity):
+    """Exposes one parsed field from SensorMobile as a separate HA entity.
+
+    Reads from ComponentData._mobile_parsed which is populated by SensorMobile.async_update.
+    No additional API calls are made.
+    """
+
+    def __init__(self, data, productSubscription, hass, field, name_suffix, unit, icon):
+        self._data = data
+        self._productSubscription = productSubscription
+        self._hass = hass
+        self._field = field
+        self._name_suffix = name_suffix
+        self._unit = unit
+        self._icon_str = icon
+
+    @property
+    def _identifier(self):
+        return self._productSubscription.get('identifier')
+
+    @property
+    def state(self):
+        return (self._data._mobile_parsed.get(self._identifier) or {}).get(self._field)
+
+    async def async_update(self):
+        await self._data.update()
+
+    async def async_will_remove_from_hass(self):
+        self._data.clear_session()
+
+    @property
+    def icon(self) -> str:
+        return self._icon_str
+
+    @property
+    def unique_id(self) -> str:
+        label = str(self._productSubscription.get('label', '')).split('/')[0].strip()
+        pid = self._productSubscription.get('identifier')
+        return f"Telenet mobile {label} {pid} {self._name_suffix}".strip()
+
+    @property
+    def name(self) -> str:
+        return self.unique_id
+
+    @property
+    def unit_of_measurement(self):
+        return self._unit
+
+    @property
+    def device_info(self) -> dict:
+        return {
+            "identifiers": {(NAME, self._data.unique_id)},
+            "name": self._data.name,
+            "manufacturer": NAME,
+        }
 
     @property
     def friendly_name(self) -> str:
