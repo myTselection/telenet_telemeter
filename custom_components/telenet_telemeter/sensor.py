@@ -19,6 +19,32 @@ _LOGGER = logging.getLogger(__name__)
 _TELENET_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.0%z"
 _TELENET_DATETIME_FORMAT_V2 = "%Y-%m-%d"
 _TELENET_DATETIME_FORMAT_MOBILE = "%Y-%m-%dT%H:%M:%S%z"
+_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+
+
+def _format_last_update(dt_str):
+    """Format ISO datetime string to '08:00 on 27 May'."""
+    if not dt_str:
+        return None
+    try:
+        import re
+        m = re.match(r'\d{4}-(\d{2})-(\d{2})T(\d{2}):(\d{2})', str(dt_str))
+        if m:
+            month, day, hour, minute = m.groups()
+            return f"{hour}:{minute} on {int(day)} {_MONTHS[int(month)-1]}"
+    except Exception:
+        pass
+    return str(dt_str)
+
+
+def _parse_eu_float(s):
+    """Parse European decimal string '34,58' or '7.79' to float, or None."""
+    if s is None:
+        return None
+    try:
+        return float(str(s).replace(',', '.'))
+    except (ValueError, TypeError):
+        return None
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -204,6 +230,7 @@ class ComponentData:
                     self._telemeter['startDate'] = startDate
                     self._telemeter['endDate'] = endDate
                     self._telemeter['productIdentifier'] = productIdentifier
+                    self._telemeter['productLabel'] = desired_product.get('label', '').split('/')[0].strip()
                     dailyUsage = await self._hass.async_add_executor_job(lambda: self._session.productDailyUsage("internet", productIdentifier, startDate,endDate))
                     self._telemeter['internetUsage'] = dailyUsage.get('internetUsage')
 
@@ -454,9 +481,9 @@ class SensorInternet(Entity):
         
     @property
     def unique_id(self) -> str:
-        return (
-            f"{NAME} internet {self._data._telemeter.get('productIdentifier')}"
-        )
+        label = self._data._telemeter.get('productLabel', '')
+        pid = self._data._telemeter.get('productIdentifier')
+        return f"Telenet internet {label} {pid}".strip()
 
     @property
     def name(self) -> str:
@@ -467,11 +494,13 @@ class SensorInternet(Entity):
         return {
             ATTR_ATTRIBUTION: NAME,
             "last update": self._last_update,
+            "last_update_formatted": _format_last_update(self._last_update),
             "used_percentage": self._used_percentage,
             "usage_gb": self._usage_gb,
             "peak_usage_gb": self._peak_usage,
             "offpeak_usage_gb": self._offpeak_usage,
             "total_downloaded_gb": self._total_downloaded_gb,
+            "period_next_start": str(self._period_end_date)[:10] if self._period_end_date else None,
             "included_volume": self._included_volume,
             "extended_volume": self._extended_volume,
             "total_volume": self._total_volume,
@@ -659,9 +688,9 @@ class SensorPeak(BinarySensorEntity):
         
     @property
     def unique_id(self) -> str:
-        return (
-            f"{NAME} peak {self._data._telemeter.get('productIdentifier')}"
-        )
+        label = self._data._telemeter.get('productLabel', '')
+        pid = self._data._telemeter.get('productIdentifier')
+        return f"Telenet peak {label} {pid}".strip()
 
     @property
     def name(self) -> str:
@@ -1111,6 +1140,14 @@ class SensorMobile(Entity):
         self._bundle_total_volume_text = None
         self._bundle_total_volume_voice = None
         self._usage_gb = None
+        self._max_data_gb = None
+        self._data_unlimited = None
+        self._period_days_left = None
+        self._has_voice = False
+        self._voice_used_minutes = None
+        self._voice_max_minutes = None
+        self._voice_unlimited = False
+        self._last_update_formatted = None
 
     @property
     def state(self):
@@ -1256,7 +1293,28 @@ class SensorMobile(Entity):
                     self._state = self._used_percentage_voice
 
             self._usage_gb = self._parse_usage_gb(self._total_volume_data)
-        
+
+        # Enrich from included section (percentage, max GB, days left, voice)
+        included = mobileusage.get('included') or {}
+        inc_data_list = included.get('data')
+        if isinstance(inc_data_list, list) and inc_data_list:
+            inc_data = inc_data_list[0]
+            self._max_data_gb = _parse_eu_float(inc_data.get('startUnits'))
+            self._data_unlimited = bool(inc_data.get('unlimited', False))
+            self._period_days_left = _parse_eu_float(inc_data.get('daysUntil'))
+            if inc_data.get('usedPercentage') is not None:
+                self._used_percentage_data = inc_data.get('usedPercentage')
+        inc_voice_list = included.get('voice')
+        if isinstance(inc_voice_list, list):
+            self._has_voice = len(inc_voice_list) > 0
+            if self._has_voice:
+                inc_voice = inc_voice_list[0]
+                self._voice_used_minutes = _parse_eu_float(inc_voice.get('usedUnits'))
+                self._voice_unlimited = bool(inc_voice.get('unlimited', False))
+                start_min = inc_voice.get('startUnits')
+                self._voice_max_minutes = _parse_eu_float(start_min) if start_min is not None else None
+        self._last_update_formatted = _format_last_update(mobileusage.get('lastUpdated'))
+
     async def async_will_remove_from_hass(self):
         _LOGGER.info("async_will_remove_from_hass " + NAME)
         self._data.clear_session()
@@ -1267,9 +1325,9 @@ class SensorMobile(Entity):
         
     @property
     def unique_id(self) -> str:
-        return (
-            f"{NAME} mobile {self._productSubscription.get('identifier')}"
-        )
+        label = str(self._productSubscription.get('label', '')).split('/')[0].strip()
+        pid = self._productSubscription.get('identifier')
+        return f"Telenet mobile {label} {pid}".strip()
 
     @property
     def name(self) -> str:
@@ -1303,6 +1361,14 @@ class SensorMobile(Entity):
             "bundle_total_volume_text" : self._bundle_total_volume_text,
             "bundle_total_volume_voice" : self._bundle_total_volume_voice,
             "usage_gb": self._usage_gb,
+            "period_days_left": self._period_days_left,
+            "max_data_gb": self._max_data_gb,
+            "data_unlimited": self._data_unlimited,
+            "has_voice": self._has_voice,
+            "voice_used_minutes": self._voice_used_minutes,
+            "voice_max_minutes": self._voice_max_minutes,
+            "voice_unlimited": self._voice_unlimited,
+            "last_update_formatted": self._last_update_formatted,
         }
 
     @property
@@ -1374,7 +1440,7 @@ class SensorAnnouncements(Entity):
 
     @property
     def unique_id(self) -> str:
-        return f"{NAME} announcements {self._data._username}"
+        return f"Telenet announcements {self._data._username}"
 
     @property
     def name(self) -> str:
