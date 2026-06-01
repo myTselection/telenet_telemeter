@@ -290,7 +290,25 @@ class ComponentData:
                 if not self._v2:
                     self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.mobile())
                 else:
-                    self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("MOBILE"))
+                    lines = await self._hass.async_add_executor_job(lambda: self._session.mobileLines())
+                    enriched = []
+                    for line in lines:
+                        msisdn = line.get('msisdn')
+                        usage = await self._hass.async_add_executor_job(lambda m=msisdn: self._session.mobileLineUsage(m))
+                        plan_name = ''
+                        if usage:
+                            plan_name = (
+                                (usage.get('usage') or {}).get('subscription', {}).get('planName', {}).get('nl') or
+                                (usage.get('usage') or {}).get('subscription', {}).get('planName', {}).get('en') or ''
+                            )
+                        enriched.append({
+                            'identifier': msisdn,
+                            'msisdn': msisdn,
+                            'label': plan_name,
+                            'isDataOnly': line.get('isDataOnly', False),
+                            'status': line.get('status'),
+                        })
+                    self._mobilemeter = enriched
                 assert self._mobilemeter is not None
                 _LOGGER.debug(f"ComponentData init mobilemeter data: {self._mobilemeter}")
 
@@ -1185,148 +1203,83 @@ class SensorMobile(Entity):
 
     async def async_update(self):
         await self._data.update()
-        bundleusage = None
-        self._identifier =  self._productSubscription.get('identifier')
-        self._activation_date =  self._productSubscription.get('activationDate')
+        self._identifier = self._productSubscription.get('identifier') or self._productSubscription.get('msisdn')
         _LOGGER.debug(f"Mobile sensor sync: {self._identifier}")
-        if self._productSubscription.get('productType') == 'bundle':
-            mobileusage = await self._hass.async_add_executor_job(lambda: self._data._session.mobileBundleUsage(self._productSubscription.get('bundleIdentifier'),self._identifier))
-            bundleusage = await self._hass.async_add_executor_job(lambda: self._data._session.mobileBundleUsage(self._productSubscription.get('bundleIdentifier')))
-            if bundleusage is None:
-                _LOGGER.warning(f"mobileBundleUsage returned None for {self._identifier}, keeping previous state")
-                return
-            _LOGGER.debug(f"bundleusage: {bundleusage}")
-        else:
-            mobileusage = await self._hass.async_add_executor_job(lambda: self._data._session.mobileUsage(self._identifier))
+
+        mobileusage = await self._hass.async_add_executor_job(
+            lambda: self._data._session.mobileLineUsage(self._identifier)
+        )
         if mobileusage is None:
-            _LOGGER.warning(f"mobileUsage returned None for {self._identifier}, keeping previous state")
+            _LOGGER.warning(f"mobileLineUsage returned None for {self._identifier}, keeping previous state")
             return
         _LOGGER.debug(f"mobileusage: {mobileusage}")
-        
-        self._last_update =  mobileusage.get('lastUpdated')
-        self._label = self._product = self._productSubscription.get('label')
-        self._period_end_date = mobileusage.get('nextBillingDate')
-        original_datetime = datetime.strptime(self._period_end_date, _TELENET_DATETIME_FORMAT_MOBILE)
-        new_datetime = original_datetime + timedelta(days=1)
-        self._period_end_date = new_datetime.strftime(_TELENET_DATETIME_FORMAT_MOBILE)
-        self._outofbundle = f"{mobileusage.get('outOfBundle').get('usedUnits')} {mobileusage.get('outOfBundle').get('unitType')}"
+
+        subscription = (mobileusage.get('usage') or {}).get('subscription', {})
+        breakdown = subscription.get('breakdown', {})
+        bars_summary = breakdown.get('barsSummary', {})
+        bars = bars_summary.get('bars', [])
+        tiles = breakdown.get('tiles', [])
+
+        # Plan metadata
+        plan_name = subscription.get('planName', {})
+        self._label = self._product = (
+            plan_name.get('nl') or plan_name.get('en') or
+            self._productSubscription.get('label', '')
+        )
         self._number = self._identifier
-        self._active = self._productSubscription.get('status')
-        self._mobileinternetonly = self._productSubscription.get('isDataOnlyPlan')    
+        self._active = mobileusage.get('lineStatus') or self._productSubscription.get('status')
+        self._mobileinternetonly = self._productSubscription.get('isDataOnly', False)
 
-        shared = False
+        # Period dates
+        next_billing = subscription.get('nextBillingDate')
+        self._period_end_date = next_billing
+        if next_billing:
+            try:
+                from datetime import timezone
+                end_dt = datetime.fromisoformat(next_billing.replace('Z', '+00:00'))
+                self._period_days_left = round((end_dt - datetime.now(timezone.utc)).total_seconds() / 86400, 1)
+            except Exception:
+                self._period_days_left = None
 
-        if mobileusage.get('shared') and self._productSubscription.get('productType') == 'bundle':
-            usage = mobileusage.get('shared')
-            bundle = bundleusage.get('shared')
-            shared = True
-        elif mobileusage.get('included'):
-            if mobileusage.get('total'):
-                usage = mobileusage.get('total')
-            else:
-                usage = mobileusage.get('included')
-                bundle = mobileusage.get('included')
-                shared = True
-        else:
-            _LOGGER.error(f'No shared or included usage found, mobileusage: {mobileusage}, bundleusage: {bundleusage}')
+        # Last update
+        self._last_update = subscription.get('lastUpdated')
+        self._last_update_formatted = _format_last_update(self._last_update)
 
-        if usage:
-            if 'data' in usage:
-                if shared:
-                    data = bundle.get('data')[0]
-                    if 'usedUnits' in data:
-                        self._bundle_total_volume_data = f"{data.get('usedUnits')} {data.get('unitType')}"
-                    if 'usedPercentage' in data:
-                        self._bundle_used_percentage_data = data.get('usedPercentage')
-                    if 'remainingUnits' in data:
-                        self._bundle_remaining_volume_data = f"{data.get('remainingUnits')} {data.get('unitType')}"
-                    data = usage.get('data')[0]
-                else:
-                    data = usage.get('data')
-                if 'usedUnits' in data:
-                    self._total_volume_data = f"{data.get('usedUnits')} {data.get('unitType')}"
-                if 'usedPercentage' in data:
-                    self._used_percentage_data = data.get('usedPercentage')
-                if 'remainingUnits' in data:
-                    self._remaining_volume_data = f"{data.get('remainingUnits')} {data.get('unitType')}"
-                _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_data} {self._used_percentage_data} {self._remaining_volume_data}")
+        # Data bar (bars[] where category == "DATA")
+        data_bar = next((b for b in bars if b.get('category') == 'DATA'), None)
+        if data_bar:
+            consumed = data_bar.get('consumed', 0) or 0
+            remaining = data_bar.get('remaining', 0) or 0
+            total = data_bar.get('total', 0) or 0
+            unit = data_bar.get('unit', 'GB')
+            self._usage_gb = round(consumed, 2)
+            self._max_data_gb = round(total, 2) if total else None
+            self._data_unlimited = data_bar.get('lineType') == 'UNLIMITED'
+            self._used_percentage_data = round(data_bar.get('consumedPercentage', 0) or 0, 1)
+            self._total_volume_data = f"{consumed} {unit}"
+            self._remaining_volume_data = f"{remaining} {unit}"
+        elif bars_summary.get('totalConsumed') is not None:
+            self._usage_gb = round(bars_summary.get('totalConsumed', 0) or 0, 2)
+            self._max_data_gb = round(bars_summary.get('totalAllocated', 0) or 0, 2)
 
-            # Fallback voor monetaire databundels (bv. BASE 15 BoY waarbij €1 = 1 GB)
-            # Als data 0 of leeg is maar monetary wel gevuld, gebruik monetary als GB-equivalent
-            if (not self._used_percentage_data or self._used_percentage_data == 0) and \
-               (not self._total_volume_data or self._total_volume_data == '0 MB'):
-                monetary = mobileusage.get('total', {}).get('monetary', {})
-                if monetary and float(monetary.get('startUnits', '0').replace(',', '.')) > 0:
-                    total_gb = float(monetary.get('startUnits', '0').replace(',', '.'))
-                    remaining_gb = float(monetary.get('remainingUnits', '0').replace(',', '.'))
-                    used_gb = float(monetary.get('usedUnits', '0').replace(',', '.'))
-                    used_pct = monetary.get('usedPercentage', 0)
-                    self._total_volume_data = f"{total_gb:.2f} GB"
-                    self._remaining_volume_data = f"{remaining_gb:.2f} GB"
-                    self._used_percentage_data = used_pct
-                    _LOGGER.debug(f"Mobile {self._identifier}: Monetary fallback - Data {self._total_volume_data} {self._used_percentage_data}% {self._remaining_volume_data}")
-                
-            if 'text' in usage:
-                if shared:
-                    text = bundle.get('text')[0]
-                    if 'usedUnits' in text:
-                        self._bundle_total_volume_text = f"{text.get('usedUnits')}"
-                    text = usage.get('text')[0]
-                else:
-                    text = usage.get('text')
-                if 'usedUnits' in text:
-                    self._total_volume_text = f"{text.get('usedUnits')}"
-                if 'usedPercentage' in text:
-                    self._used_percentage_text = text.get('usedPercentage')
-                if 'remainingUnits' in text:
-                    self._remaining_volume_text = f"{text.get('remainingUnits')}"
-                _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_text} {self._used_percentage_text} {self._remaining_volume_text}")
-                
-            if 'voice' in usage:
-                if shared:
-                    voice = bundle.get('voice')[0]
-                    if 'usedUnits' in voice:
-                        self._bundle_total_volume_voice = f"{voice.get('usedUnits')} {voice.get('unitType').lower()}"
-                    voice = usage.get('voice')[0]
-                else:
-                    voice = usage.get('voice')
-                if 'usedUnits' in voice:
-                    self._total_volume_voice = f"{voice.get('usedUnits')} {voice.get('unitType').lower()}"
-                if 'usedPercentage' in voice:
-                    self._used_percentage_voice = voice.get('usedPercentage')
-                if 'remainingUnits' in voice:
-                    self._remaining_volume_voice = f"{voice.get('remainingUnits')} {voice.get('unitType').lower()}"
-                _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_voice} {self._used_percentage_voice} {self._remaining_volume_voice}")
-            if self._used_percentage_data != None:
-                self._state = self._used_percentage_data
-            else:
-                if self._bundle_used_percentage_data != None:
-                    self._state = self._bundle_used_percentage_data
-                else:
-                    self._state = self._used_percentage_voice
+        # Voice tile (tiles[] where category == "CALL")
+        self._has_voice = not self._productSubscription.get('isDataOnly', False)
+        call_tile = next((t for t in tiles if t.get('category') == 'CALL'), None)
+        if call_tile:
+            self._voice_used_minutes = round(call_tile.get('consumed', 0) or 0, 1)
+            self._voice_unlimited = call_tile.get('lineType') == 'UNLIMITED'
+            total_voice = call_tile.get('total', 0) or 0
+            self._voice_max_minutes = round(total_voice, 0) if total_voice > 0 else None
+            self._total_volume_voice = f"{self._voice_used_minutes} minutes"
+        elif self._has_voice:
+            self._voice_used_minutes = None
 
-            self._usage_gb = self._parse_usage_gb(self._total_volume_data)
+        # SMS tile
+        sms_tile = next((t for t in tiles if t.get('category') == 'SMS'), None)
+        if sms_tile:
+            self._total_volume_text = str(sms_tile.get('consumed', 0))
 
-        # Enrich from included section (percentage, max GB, days left, voice)
-        included = mobileusage.get('included') or {}
-        inc_data_list = included.get('data')
-        if isinstance(inc_data_list, list) and inc_data_list:
-            inc_data = inc_data_list[0]
-            self._max_data_gb = _parse_eu_float(inc_data.get('startUnits'))
-            self._data_unlimited = bool(inc_data.get('unlimited', False))
-            self._period_days_left = _parse_eu_float(inc_data.get('daysUntil'))
-            if inc_data.get('usedPercentage') is not None:
-                self._used_percentage_data = inc_data.get('usedPercentage')
-        inc_voice_list = included.get('voice')
-        if isinstance(inc_voice_list, list):
-            self._has_voice = len(inc_voice_list) > 0
-            if self._has_voice:
-                inc_voice = inc_voice_list[0]
-                self._voice_used_minutes = _parse_eu_float(inc_voice.get('usedUnits'))
-                self._voice_unlimited = bool(inc_voice.get('unlimited', False))
-                start_min = inc_voice.get('startUnits')
-                self._voice_max_minutes = _parse_eu_float(start_min) if start_min is not None else None
-        self._last_update_formatted = _format_last_update(mobileusage.get('lastUpdated'))
+        self._state = self._used_percentage_data
 
         # Store parsed values in shared cache for sub-sensors
         self._data._mobile_parsed[self._identifier] = {

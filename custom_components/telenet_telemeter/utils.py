@@ -286,7 +286,7 @@ class TelenetSession(object):
             f"{self.api_url}/ocapi/public/api/mobile-service/v3/mobilesubscriptions/{productIdentifier}/usages",
             "mobileUsage"
         )
-        if response.status_code == 200:
+        if response is not None and response.status_code == 200:
             return response.json()
         return None
 
@@ -298,13 +298,33 @@ class TelenetSession(object):
             url = f"{self.api_url}/ocapi/public/api/mobile-service/v3/mobilesubscriptions/{bundleIdentifier}/usages?type=bundle"
             caller = "mobileBundleUsage bundle"
         response = self._call_with_retry(url, caller)
-        if response.status_code == 200:
+        if response is not None and response.status_code == 200:
+            return response.json()
+        return None
+
+    def mobileLines(self):
+        """List all mobile lines: [{msisdn, isDataOnly, status, name}]"""
+        response = self.callTelenet(
+            f"{self.api_url}/ocapi/public/api/customer-web-billing-mobile-line-selector/v1/mobile-lines",
+            "mobileLines"
+        )
+        if response is not None and response.status_code == 200:
+            return response.json()
+        return []
+
+    def mobileLineUsage(self, msisdn):
+        """Usage for one mobile line via the customer-web-billing API."""
+        response = self._call_with_retry(
+            f"{self.api_url}/ocapi/public/api/customer-web-billing-mobile-usage/v1/mobile-lines/{msisdn}/usage",
+            "mobileLineUsage"
+        )
+        if response is not None and response.status_code == 200:
             return response.json()
         return None
 
     def inboxMessages(self):
         response = self.callTelenet(f"{self.api_url}/ocapi/public/api/telenet-app-inbox-messages-cs/v1/inbox/messages", "inboxMessages", expectedStatusCode=None)
-        if response.status_code == 200:
+        if response is not None and response.status_code == 200:
             return response.json()
         return None
 
