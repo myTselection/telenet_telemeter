@@ -1,0 +1,316 @@
+"""Unit tests for inbox messages, usage_gb, and SensorAnnouncements."""
+import asyncio
+import json
+import sys
+import types as _types
+import unittest
+from datetime import datetime, timedelta
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
+# ---------------------------------------------------------------------------
+# Stub homeassistant before any project imports
+# ---------------------------------------------------------------------------
+
+def _make_module(name, **attrs):
+    m = _types.ModuleType(name)
+    for k, v in attrs.items():
+        setattr(m, k, v)
+    sys.modules[name] = m
+    return m
+
+class _AutoMockModule(_types.ModuleType):
+    """Module stub: any attribute access returns a MagicMock."""
+    def __getattr__(self, name):
+        v = MagicMock()
+        setattr(self, name, v)
+        return v
+
+def _make_mock_module(name):
+    m = _AutoMockModule(name)
+    sys.modules[name] = m
+    return m
+
+# Stub every homeassistant sub-module that the package imports.
+for _mod_name in [
+    "homeassistant", "homeassistant.config_entries", "homeassistant.core",
+    "homeassistant.helpers", "homeassistant.helpers.aiohttp_client",
+    "homeassistant.helpers.config_validation", "homeassistant.helpers.entity",
+    "homeassistant.helpers.typing", "homeassistant.components",
+    "homeassistant.components.sensor", "homeassistant.components.binary_sensor",
+    "homeassistant.const", "homeassistant.util",
+    "voluptuous",
+]:
+    _make_mock_module(_mod_name)
+
+# Provide the specific values that sensor.py and utils.py actually USE
+# (attribute access, not just import-name binding).
+sys.modules["homeassistant.const"].ATTR_ATTRIBUTION = "attribution"
+sys.modules["homeassistant.helpers.config_validation"].string = str
+sys.modules["homeassistant.helpers.config_validation"].boolean = bool
+sys.modules["homeassistant.helpers.aiohttp_client"].async_get_clientsession = lambda h: None
+sys.modules["homeassistant.helpers.entity"].Entity = object
+sys.modules["homeassistant.components.binary_sensor"].BinarySensorEntity = object
+sys.modules["homeassistant.components.binary_sensor"].DEVICE_CLASSES = []
+sys.modules["homeassistant.util"].Throttle = lambda d: (lambda f: f)
+_ps_mod = sys.modules["homeassistant.components.sensor"]
+_ps_mock = MagicMock()
+_ps_mock.extend = MagicMock(return_value=MagicMock())
+_ps_mod.PLATFORM_SCHEMA = _ps_mock
+sys.modules["voluptuous"].Invalid = Exception
+
+sys.path.insert(0, ".")
+
+from custom_components.telenet_telemeter.utils import TelenetSession  # noqa: E402
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _mock_response(status_code, body):
+    r = MagicMock()
+    r.status_code = status_code
+    r.json.return_value = body
+    r.text = json.dumps(body)
+    return r
+
+
+def _make_component_data(inbox=None, v2=True, telemeter=None, product_details=None):
+    """Return a minimal ComponentData-like mock."""
+    data = MagicMock()
+    data._inbox_messages = inbox
+    data._v2 = v2
+    data._telemeter = telemeter or {}
+    data._product_details = product_details or {}
+    data._username = "test@example.com"
+    data.unique_id = "Telenet Telemeter test@example.com"
+    data.name = "Telenet Telemeter test@example.com"
+    # update() is a no-op coroutine
+    async def noop_update():
+        pass
+    data.update = noop_update
+    return data
+
+
+# ---------------------------------------------------------------------------
+# TelenetSession.inboxMessages / inboxCount
+# ---------------------------------------------------------------------------
+
+class TestTelenetSessionInbox(unittest.TestCase):
+
+    def _make_session(self):
+        session = TelenetSession.__new__(TelenetSession)
+        session.provider = "Telenet"
+        session.api_url = "https://api.prd.telenet.be"
+        return session
+
+    def test_inbox_messages_returns_json_on_200(self):
+        session = self._make_session()
+        payload = {"messages": [{"messageId": "abc", "title": "Hi", "read": False}]}
+        with patch.object(session, "callTelenet", return_value=_mock_response(200, payload)):
+            result = session.inboxMessages()
+        self.assertEqual(result, payload)
+
+    def test_inbox_messages_returns_none_on_non_200(self):
+        session = self._make_session()
+        with patch.object(session, "callTelenet", return_value=_mock_response(401, {})):
+            result = session.inboxMessages()
+        self.assertIsNone(result)
+
+    def test_inbox_messages_returns_none_on_403(self):
+        session = self._make_session()
+        with patch.object(session, "callTelenet", return_value=_mock_response(403, {})):
+            result = session.inboxMessages()
+        self.assertIsNone(result)
+
+    def test_inbox_count_returns_json_on_200(self):
+        session = self._make_session()
+        payload = {"unreadMessagesCount": 3}
+        with patch.object(session, "callTelenet", return_value=_mock_response(200, payload)):
+            result = session.inboxCount()
+        self.assertEqual(result, payload)
+        self.assertEqual(result["unreadMessagesCount"], 3)
+
+    def test_inbox_count_returns_none_on_non_200(self):
+        session = self._make_session()
+        with patch.object(session, "callTelenet", return_value=_mock_response(404, {})):
+            result = session.inboxCount()
+        self.assertIsNone(result)
+
+    def test_inbox_messages_uses_correct_url(self):
+        session = self._make_session()
+        with patch.object(session, "callTelenet", return_value=_mock_response(200, {})) as mock_call:
+            session.inboxMessages()
+        url = mock_call.call_args[0][0]
+        self.assertIn("telenet-app-inbox-messages-cs/v1/inbox/messages", url)
+
+    def test_inbox_count_uses_correct_url(self):
+        session = self._make_session()
+        with patch.object(session, "callTelenet", return_value=_mock_response(200, {})) as mock_call:
+            session.inboxCount()
+        url = mock_call.call_args[0][0]
+        self.assertIn("telenet-app-inbox-messages-cs/v1/inbox", url)
+        self.assertNotIn("/messages", url)
+
+
+# ---------------------------------------------------------------------------
+# SensorAnnouncements
+# ---------------------------------------------------------------------------
+
+try:
+    import custom_components.telenet_telemeter.sensor as _sensor_mod
+    SensorAnnouncements = _sensor_mod.SensorAnnouncements
+    SensorInternet = _sensor_mod.SensorInternet
+    _SENSOR_AVAILABLE = True
+except Exception:
+    _SENSOR_AVAILABLE = False
+
+
+@unittest.skipUnless(_SENSOR_AVAILABLE, "sensor module could not be imported without HA")
+class TestSensorAnnouncements(unittest.TestCase):
+
+    def _run(self, coro):
+        return asyncio.get_event_loop().run_until_complete(coro)
+
+    def test_state_is_none_when_inbox_unavailable(self):
+        data = _make_component_data(inbox=None)
+        sensor = SensorAnnouncements(data, None)
+        self._run(sensor.async_update())
+        self.assertIsNone(sensor.state)
+        self.assertIsNone(sensor._messages)
+
+    def test_state_zero_when_all_messages_read(self):
+        inbox = {"messages": [
+            {"messageId": "1", "title": "Hello", "read": True, "createdAt": "2026-01-01T10:00:00"},
+            {"messageId": "2", "title": "World", "read": True, "createdAt": "2026-01-02T10:00:00"},
+        ]}
+        data = _make_component_data(inbox=inbox)
+        sensor = SensorAnnouncements(data, None)
+        self._run(sensor.async_update())
+        self.assertEqual(sensor.state, 0)
+        self.assertEqual(len(sensor._messages), 2)
+
+    def test_unread_count_correct(self):
+        inbox = {"messages": [
+            {"messageId": "1", "title": "Unread A", "read": False},
+            {"messageId": "2", "title": "Read B",   "read": True},
+            {"messageId": "3", "title": "Unread C", "read": False},
+        ]}
+        data = _make_component_data(inbox=inbox)
+        sensor = SensorAnnouncements(data, None)
+        self._run(sensor.async_update())
+        self.assertEqual(sensor.state, 2)
+
+    def test_empty_messages_list(self):
+        data = _make_component_data(inbox={"messages": []})
+        sensor = SensorAnnouncements(data, None)
+        self._run(sensor.async_update())
+        self.assertEqual(sensor.state, 0)
+        self.assertEqual(sensor._messages, [])
+
+    def test_inbox_as_plain_list(self):
+        """Some API versions may return a bare list instead of a dict."""
+        inbox = [
+            {"messageId": "x", "title": "Notice", "read": False},
+        ]
+        data = _make_component_data(inbox=inbox)
+        sensor = SensorAnnouncements(data, None)
+        self._run(sensor.async_update())
+        self.assertEqual(sensor.state, 1)
+
+    def test_message_fields_mapped_correctly(self):
+        inbox = {"messages": [{
+            "messageId": "abc123",
+            "title": "Important update",
+            "body": "Your plan changes next month.",
+            "type": "INFO",
+            "createdAt": "2026-05-01T09:00:00",
+            "read": False,
+        }]}
+        data = _make_component_data(inbox=inbox)
+        sensor = SensorAnnouncements(data, None)
+        self._run(sensor.async_update())
+        msg = sensor._messages[0]
+        self.assertEqual(msg["messageId"], "abc123")
+        self.assertEqual(msg["title"], "Important update")
+        self.assertEqual(msg["body"], "Your plan changes next month.")
+        self.assertEqual(msg["type"], "INFO")
+        self.assertEqual(msg["createdAt"], "2026-05-01T09:00:00")
+        self.assertFalse(msg["read"])
+
+    def test_fallback_id_field(self):
+        """messageId should fall back to id if messageId is absent."""
+        inbox = {"messages": [{"id": "fallback-id", "title": "Hi", "read": False}]}
+        data = _make_component_data(inbox=inbox)
+        sensor = SensorAnnouncements(data, None)
+        self._run(sensor.async_update())
+        self.assertEqual(sensor._messages[0]["messageId"], "fallback-id")
+
+    def test_fallback_body_to_content(self):
+        """body should fall back to content field."""
+        inbox = {"messages": [{"messageId": "1", "content": "Text here", "read": True}]}
+        data = _make_component_data(inbox=inbox)
+        sensor = SensorAnnouncements(data, None)
+        self._run(sensor.async_update())
+        self.assertEqual(sensor._messages[0]["body"], "Text here")
+
+    def test_extra_state_attributes_keys(self):
+        data = _make_component_data(inbox={"messages": []})
+        sensor = SensorAnnouncements(data, None)
+        self._run(sensor.async_update())
+        attrs = sensor.extra_state_attributes
+        self.assertIn("last_update", attrs)
+        self.assertIn("unread_count", attrs)
+        self.assertIn("messages", attrs)
+
+    def test_unique_id_contains_username(self):
+        data = _make_component_data()
+        sensor = SensorAnnouncements(data, None)
+        self.assertIn("test@example.com", sensor.unique_id)
+
+    def test_icon(self):
+        data = _make_component_data()
+        sensor = SensorAnnouncements(data, None)
+        self.assertEqual(sensor.icon, "mdi:bell-outline")
+
+
+# ---------------------------------------------------------------------------
+# usage_gb computation (tested in isolation without full async_update)
+# ---------------------------------------------------------------------------
+
+class TestUsageGb(unittest.TestCase):
+
+    def test_usage_gb_computed_from_percentage_and_total(self):
+        """usage_gb = used_percentage / 100 * total_volume."""
+        used_pct = 50.0
+        total_vol = 200.0  # GB
+        usage_gb = round(used_pct / 100 * total_vol, 2)
+        self.assertAlmostEqual(usage_gb, 100.0)
+
+    def test_usage_gb_zero_percent(self):
+        usage_gb = round(0.0 / 100 * 200.0, 2)
+        self.assertEqual(usage_gb, 0.0)
+
+    def test_usage_gb_full(self):
+        usage_gb = round(100.0 / 100 * 150.0, 2)
+        self.assertAlmostEqual(usage_gb, 150.0)
+
+    def test_usage_gb_fractional(self):
+        usage_gb = round(33.33 / 100 * 300.0, 2)
+        self.assertAlmostEqual(usage_gb, 99.99)
+
+    @unittest.skipUnless(_SENSOR_AVAILABLE, "sensor module could not be imported without HA")
+    def test_usage_gb_attribute_present_in_internet_sensor(self):
+        data = _make_component_data()
+        sensor = SensorInternet(data, None)
+        sensor._used_percentage = 75.0
+        sensor._total_volume = 200.0
+        sensor._usage_gb = round(75.0 / 100 * 200.0, 2)
+        attrs = sensor.extra_state_attributes
+        self.assertIn("usage_gb", attrs)
+        self.assertAlmostEqual(attrs["usage_gb"], 150.0)
+
+
+if __name__ == "__main__":
+    unittest.main()

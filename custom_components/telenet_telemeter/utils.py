@@ -70,6 +70,7 @@ class TelenetSession(object):
         self.s.headers["Referrer"] = self.cfg["referrer"]
 
     def callTelenet(self, url, caller = "Not set", expectedStatusCode = 200, data = None, printResponse = False, method : HttpMethod  = HttpMethod.GET, allowRedirects = True):
+        response = None
         try:
             if method == HttpMethod.GET:
                 _LOGGER.debug(f"[{caller}] Calling GET {url}")
@@ -92,7 +93,8 @@ class TelenetSession(object):
             if expectedStatusCode != None:
                 assert response.status_code == expectedStatusCode
         except Exception as e:
-            _LOGGER.error(f"[{caller}]: Failed to call [{method}]({url}). Statuscode was {response.status_code}. Exception was {getattr(e, 'message', repr(e))}")
+            status = response.status_code if response is not None else "N/A"
+            _LOGGER.error(f"[{caller}]: Failed to call [{method}]({url}). Statuscode was {status}. Exception was {getattr(e, 'message', repr(e))}")
         return response
 
     
@@ -256,16 +258,81 @@ class TelenetSession(object):
         response = self.callTelenet(f"{self.api_url}/ocapi/public/api/product-service/v1/products/{productIdentifier}?producttype={productType.lower()}", "productService")
         return response.json()
 
+    def _call_with_retry(self, url, caller, retries=3, backoff=10):
+        """Call an endpoint, retrying on 429 with exponential-ish backoff.
+        Stops immediately on Cloudflare block (HTML body on 429)."""
+        import time
+        for attempt in range(retries):
+            response = self.callTelenet(url, caller, expectedStatusCode=None)
+            if response.status_code == 200:
+                return response
+            if response.status_code == 429:
+                content_type = response.headers.get("Content-Type", "")
+                if "text/html" in content_type:
+                    _LOGGER.warning(f"[{caller}] Cloudflare block (not retrying) — run less frequently to avoid bot detection")
+                    return response
+                if attempt < retries - 1:
+                    wait = int(response.headers.get("Retry-After", backoff * (attempt + 1)))
+                    wait = wait if wait > 0 else backoff * (attempt + 1)
+                    _LOGGER.warning(f"[{caller}] 429 rate-limited, retrying in {wait}s (attempt {attempt + 1}/{retries})")
+                    time.sleep(wait)
+            else:
+                _LOGGER.warning(f"[{caller}] Unexpected status {response.status_code}")
+                return response
+        return response
+
     def mobileUsage(self, productIdentifier):
-        response = self.callTelenet(f"{self.api_url}/ocapi/public/api/mobile-service/v3/mobilesubscriptions/{productIdentifier}/usages", "mobileUsage")
-        return response.json()
+        response = self._call_with_retry(
+            f"{self.api_url}/ocapi/public/api/mobile-service/v3/mobilesubscriptions/{productIdentifier}/usages",
+            "mobileUsage"
+        )
+        if response is not None and response.status_code == 200:
+            return response.json()
+        return None
 
     def mobileBundleUsage(self, bundleIdentifier, lineIdentifier=None):
         if lineIdentifier is not None:
-            response = self.callTelenet(f"{self.api_url}/ocapi/public/api/mobile-service/v3/mobilesubscriptions/{bundleIdentifier}/usages?type=bundle&lineIdentifier={lineIdentifier}", "mobileBundleUsage lineIdentifier")
+            url = f"{self.api_url}/ocapi/public/api/mobile-service/v3/mobilesubscriptions/{bundleIdentifier}/usages?type=bundle&lineIdentifier={lineIdentifier}"
+            caller = "mobileBundleUsage lineIdentifier"
         else:
-            response = self.callTelenet(f"{self.api_url}/ocapi/public/api/mobile-service/v3/mobilesubscriptions/{bundleIdentifier}/usages?type=bundle", "mobileBundleUsage bundle")
-        return response.json()
+            url = f"{self.api_url}/ocapi/public/api/mobile-service/v3/mobilesubscriptions/{bundleIdentifier}/usages?type=bundle"
+            caller = "mobileBundleUsage bundle"
+        response = self._call_with_retry(url, caller)
+        if response is not None and response.status_code == 200:
+            return response.json()
+        return None
+
+    def mobileLines(self):
+        """List all mobile lines: [{msisdn, isDataOnly, status, name}]"""
+        response = self.callTelenet(
+            f"{self.api_url}/ocapi/public/api/customer-web-billing-mobile-line-selector/v1/mobile-lines",
+            "mobileLines"
+        )
+        if response is not None and response.status_code == 200:
+            return response.json()
+        return []
+
+    def mobileLineUsage(self, msisdn):
+        """Usage for one mobile line via the customer-web-billing API."""
+        response = self._call_with_retry(
+            f"{self.api_url}/ocapi/public/api/customer-web-billing-mobile-usage/v1/mobile-lines/{msisdn}/usage",
+            "mobileLineUsage"
+        )
+        if response is not None and response.status_code == 200:
+            return response.json()
+        return None
+
+    def inboxMessages(self):
+        response = self.callTelenet(f"{self.api_url}/ocapi/public/api/telenet-app-inbox-messages-cs/v1/inbox/messages", "inboxMessages", expectedStatusCode=None)
+        if response is not None and response.status_code == 200:
+            return response.json()
+        return None
+
+    def inboxCount(self):
+        response = self.callTelenet(f"{self.api_url}/ocapi/public/api/telenet-app-inbox-messages-cs/v1/inbox", "inboxCount", expectedStatusCode=None)
+        if response.status_code == 200:
+            return response.json()
+        return None
 
     def apiVersion2(self):
         response = self.callTelenet(f"{self.api_url}/ocapi/public/api/product-service/v1/product-subscriptions?producttypes=PLAN", "apiVersion2", None)

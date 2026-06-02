@@ -19,6 +19,32 @@ _LOGGER = logging.getLogger(__name__)
 _TELENET_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.0%z"
 _TELENET_DATETIME_FORMAT_V2 = "%Y-%m-%d"
 _TELENET_DATETIME_FORMAT_MOBILE = "%Y-%m-%dT%H:%M:%S%z"
+_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+
+
+def _format_last_update(dt_str):
+    """Format ISO datetime string to '08:00 on 27 May'."""
+    if not dt_str:
+        return None
+    try:
+        import re
+        m = re.match(r'\d{4}-(\d{2})-(\d{2})T(\d{2}):(\d{2})', str(dt_str))
+        if m:
+            month, day, hour, minute = m.groups()
+            return f"{hour}:{minute} on {int(day)} {_MONTHS[int(month)-1]}"
+    except Exception:
+        pass
+    return str(dt_str)
+
+
+def _parse_eu_float(s):
+    """Parse European decimal string '34,58' or '7.79' to float, or None."""
+    if s is None:
+        return None
+    try:
+        return float(str(s).replace(',', '.'))
+    except (ValueError, TypeError):
+        return None
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -42,7 +68,8 @@ async def dry_setup(hass, config_entry, async_add_devices):
 
     check_settings(config, hass)
     sensors = []
-    
+    data_internet = None
+
     if internet:
         data_internet = ComponentData(
             username,
@@ -61,6 +88,9 @@ async def dry_setup(hass, config_entry, async_add_devices):
         binarysensor = SensorPeak(data_internet, hass)
         await binarysensor.async_update()
         sensors.append(binarysensor)
+        announcements = SensorAnnouncements(data_internet, hass)
+        await announcements.async_update()
+        sensors.append(announcements)
     if mobile:
         data_mobile = ComponentData(
             username,
@@ -99,7 +129,23 @@ async def dry_setup(hass, config_entry, async_add_devices):
             for productSubscription in data_mobile._mobilemeter:
                 _LOGGER.debug("Mobile productSubscription " +  productSubscription.get("identifier") + " [" +  productSubscription.get("label") + "]")
                 sensor = SensorMobile(data_mobile, productSubscription, hass)
+                await sensor.async_update()
                 sensors.append(sensor)
+                # Sub-sensors: each exposes one metric as a separate HA entity
+                sub_defs = [
+                    ("period_days_left",      "days left",    "days", "mdi:calendar-clock"),
+                    ("max_data_gb",           "max data",     "GB",   "mdi:database"),
+                    ("used_percentage_data",  "usage %",      "%",    "mdi:percent"),
+                    ("voice_used_minutes",    "voice used",   "min",  "mdi:phone-outgoing"),
+                    ("last_update_formatted", "last update",  None,   "mdi:clock-outline"),
+                ]
+                for field, suffix, unit, icon in sub_defs:
+                    sub = SensorMobileAttribute(data_mobile, productSubscription, hass, field, suffix, unit, icon)
+                    sensors.append(sub)
+        if not data_internet:
+            announcements = SensorAnnouncements(data_mobile, hass)
+            await announcements.async_update()
+            sensors.append(announcements)
     async_add_devices(sensors)
 
 
@@ -155,7 +201,9 @@ class ComponentData:
         self._mobilemeter = None
         self._producturl = None
         self._product_details = None
+        self._inbox_messages = None
         self._v2 = None
+        self._mobile_parsed = {}
         self._hass = hass
         
     async def _forced_update(self):
@@ -195,6 +243,7 @@ class ComponentData:
                     self._telemeter['startDate'] = startDate
                     self._telemeter['endDate'] = endDate
                     self._telemeter['productIdentifier'] = productIdentifier
+                    self._telemeter['productLabel'] = desired_product.get('label', '').split('/')[0].strip()
                     dailyUsage = await self._hass.async_add_executor_job(lambda: self._session.productDailyUsage("internet", productIdentifier, startDate,endDate))
                     self._telemeter['internetUsage'] = dailyUsage.get('internetUsage')
 
@@ -230,11 +279,36 @@ class ComponentData:
                 self._product_details = await self._hass.async_add_executor_job(lambda: self._session.telemeter_product_details(self._producturl))
                 assert self._product_details is not None
                 _LOGGER.debug(f"ComponentData init telemeter productdetails: {self._product_details}")
+            try:
+                self._inbox_messages = await self._hass.async_add_executor_job(lambda: self._session.inboxMessages())
+                _LOGGER.debug(f"ComponentData init inbox messages: {self._inbox_messages}")
+            except Exception as e:
+                _LOGGER.warning(f"Failed to fetch inbox messages: {e}")
+                self._inbox_messages = None
+
             if self._mobile:
                 if not self._v2:
                     self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.mobile())
                 else:
-                    self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("MOBILE"))
+                    lines = await self._hass.async_add_executor_job(lambda: self._session.mobileLines())
+                    enriched = []
+                    for line in lines:
+                        msisdn = line.get('msisdn')
+                        usage = await self._hass.async_add_executor_job(lambda m=msisdn: self._session.mobileLineUsage(m))
+                        plan_name = ''
+                        if usage:
+                            plan_name = (
+                                (usage.get('usage') or {}).get('subscription', {}).get('planName', {}).get('nl') or
+                                (usage.get('usage') or {}).get('subscription', {}).get('planName', {}).get('en') or ''
+                            )
+                        enriched.append({
+                            'identifier': msisdn,
+                            'msisdn': msisdn,
+                            'label': plan_name,
+                            'isDataOnly': line.get('isDataOnly', False),
+                            'status': line.get('status'),
+                        })
+                    self._mobilemeter = enriched
                 assert self._mobilemeter is not None
                 _LOGGER.debug(f"ComponentData init mobilemeter data: {self._mobilemeter}")
 
@@ -282,15 +356,17 @@ class SensorInternet(Entity):
         self._upload_speed = None
         self._peak_usage = None
         self._offpeak_usage = None
+        self._total_downloaded_gb = None
         self._squeezed = False
         self._modemMac = None
         self._wifiEnabled = None
         self._wifreeEnabled = None
+        self._usage_gb = None
 
     @property
     def state(self):
         """Return the state of the sensor."""
-        return self._used_percentage
+        return self._usage_gb
 
     async def async_update(self):
         await self._data.update()
@@ -386,10 +462,11 @@ class SensorInternet(Entity):
                 self._extendedvolume_usage = 0
             else:
                 self._wifree_usage = 0
-                self._peak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('peak', 0) or 0, 1)
+                self._peak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('peak', 0) or 0, 2)
                 self._includedvolume_usage = self._peak_usage
                 self._extendedvolume_usage = 0
-                self._offpeak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('offPeak', 0) or 0, 1)
+                self._offpeak_usage = round(self._data._telemeter.get('internetUsage')[0].get('totalUsage').get('offPeak', 0) or 0, 2)
+                self._total_downloaded_gb = round(self._peak_usage + self._offpeak_usage, 2)
             self._used_percentage = 0
             if ( self._included_volume + self._extended_volume) != 0:
                 if not self._data._v2:
@@ -412,8 +489,18 @@ class SensorInternet(Entity):
             _LOGGER.debug(f"SensorInternet _extended_volume: {self._extended_volume}")
             _LOGGER.debug(f"SensorInternet _used_percentage: {self._used_percentage}")
             _LOGGER.debug(f"SensorInternet _squeezed: {self._squeezed}")
-            
-        
+
+        # usage_gb = authoritative FUP/CAP counter from productUsage (only peak counts).
+        # total_downloaded_gb = peak + offPeak (raw bytes, already set for v2 TURBO/FUP).
+        if self._peak_usage is not None and self._offpeak_usage is not None:
+            if self._data._v2:
+                fup_units = (self._data._telemeter.get('internet') or {}).get('totalUsage', {}).get('units')
+                self._usage_gb = round(fup_units, 2) if fup_units is not None else round(self._peak_usage, 2)
+            else:
+                self._usage_gb = round((self._peak_usage or 0) + (self._offpeak_usage or 0), 2)
+        elif self._total_volume and self._used_percentage is not None:
+            self._usage_gb = round(self._used_percentage / 100 * self._total_volume, 2)
+
     async def async_will_remove_from_hass(self):
         """Clean up after entity before removal."""
         _LOGGER.info("async_will_remove_from_hass " + NAME)
@@ -425,9 +512,9 @@ class SensorInternet(Entity):
         
     @property
     def unique_id(self) -> str:
-        return (
-            f"{NAME} internet {self._data._telemeter.get('productIdentifier')}"
-        )
+        label = self._data._telemeter.get('productLabel', '')
+        pid = self._data._telemeter.get('productIdentifier')
+        return f"Telenet internet {label} {pid}".strip()
 
     @property
     def name(self) -> str:
@@ -438,14 +525,20 @@ class SensorInternet(Entity):
         return {
             ATTR_ATTRIBUTION: NAME,
             "last update": self._last_update,
+            "last_update_formatted": _format_last_update(self._last_update),
             "used_percentage": self._used_percentage,
+            "usage_gb": self._usage_gb,
+            "peak_usage_gb": self._peak_usage,
+            "offpeak_usage_gb": self._offpeak_usage,
+            "total_downloaded_gb": self._total_downloaded_gb,
+            "period_next_start": str(self._period_end_date)[:10] if self._period_end_date else None,
             "included_volume": self._included_volume,
             "extended_volume": self._extended_volume,
             "total_volume": self._total_volume,
             "wifree_usage": self._wifree_usage,
             "includedvolume_usage": self._includedvolume_usage,
             "extendedvolume_usage": self._extendedvolume_usage,
-            "peak_usage": self._peak_usage, 
+            "peak_usage": self._peak_usage,
             "offpeak_usage": self._offpeak_usage,
             "squeezed": self._squeezed,
             "period_start": self._period_start_date,
@@ -474,12 +567,12 @@ class SensorInternet(Entity):
 
     @property
     def unit_of_measurement(self) -> str:
-        return "%"
+        return "GB"
 
     @property
     def friendly_name(self) -> str:
         return self.unique_id
-        
+
 
 class SensorPeak(BinarySensorEntity):
     def __init__(self, data, hass):
@@ -626,9 +719,9 @@ class SensorPeak(BinarySensorEntity):
         
     @property
     def unique_id(self) -> str:
-        return (
-            f"{NAME} peak {self._data._telemeter.get('productIdentifier')}"
-        )
+        label = self._data._telemeter.get('productLabel', '')
+        pid = self._data._telemeter.get('productIdentifier')
+        return f"Telenet peak {label} {pid}".strip()
 
     @property
     def name(self) -> str:
@@ -1077,129 +1170,131 @@ class SensorMobile(Entity):
         self._bundle_remaining_volume_data = None
         self._bundle_total_volume_text = None
         self._bundle_total_volume_voice = None
+        self._usage_gb = None
+        self._max_data_gb = None
+        self._data_unlimited = None
+        self._period_days_left = None
+        self._has_voice = False
+        self._voice_used_minutes = None
+        self._voice_max_minutes = None
+        self._voice_unlimited = False
+        self._last_update_formatted = None
 
     @property
     def state(self):
-        return self._state
+        return self._usage_gb if self._usage_gb is not None else self._state
+
+    @staticmethod
+    def _parse_usage_gb(volume_str):
+        """Parse '40.61 GB' / '7780 MB' to a float in GB, or None."""
+        if not volume_str:
+            return None
+        try:
+            parts = str(volume_str).strip().split()
+            val = float(parts[0].replace(',', '.'))
+            unit = parts[1].upper() if len(parts) > 1 else "GB"
+            if unit == "KB":
+                return round(val / 1024 / 1024, 2)
+            if unit == "MB":
+                return round(val / 1024, 2)
+            return round(val, 2)
+        except (ValueError, IndexError):
+            return None
 
     async def async_update(self):
         await self._data.update()
-        bundleusage = None
-        self._identifier =  self._productSubscription.get('identifier')
-        self._activation_date =  self._productSubscription.get('activationDate')
+        self._identifier = self._productSubscription.get('identifier') or self._productSubscription.get('msisdn')
         _LOGGER.debug(f"Mobile sensor sync: {self._identifier}")
-        if self._productSubscription.get('productType') == 'bundle':
-            mobileusage = await self._hass.async_add_executor_job(lambda: self._data._session.mobileBundleUsage(self._productSubscription.get('bundleIdentifier'),self._identifier))
-            bundleusage = await self._hass.async_add_executor_job(lambda: self._data._session.mobileBundleUsage(self._productSubscription.get('bundleIdentifier')))
-            assert bundleusage is not None
-            _LOGGER.debug(f"bundleusage: {bundleusage}")
-        else:
-            mobileusage = await self._hass.async_add_executor_job(lambda: self._data._session.mobileUsage(self._identifier))
-        assert mobileusage is not None
+
+        mobileusage = await self._hass.async_add_executor_job(
+            lambda: self._data._session.mobileLineUsage(self._identifier)
+        )
+        if mobileusage is None:
+            _LOGGER.warning(f"mobileLineUsage returned None for {self._identifier}, keeping previous state")
+            return
         _LOGGER.debug(f"mobileusage: {mobileusage}")
-        
-        self._last_update =  mobileusage.get('lastUpdated')
-        self._label = self._product = self._productSubscription.get('label')
-        self._period_end_date = mobileusage.get('nextBillingDate')
-        original_datetime = datetime.strptime(self._period_end_date, _TELENET_DATETIME_FORMAT_MOBILE)
-        new_datetime = original_datetime + timedelta(days=1)
-        self._period_end_date = new_datetime.strftime(_TELENET_DATETIME_FORMAT_MOBILE)
-        self._outofbundle = f"{mobileusage.get('outOfBundle').get('usedUnits')} {mobileusage.get('outOfBundle').get('unitType')}"
+
+        subscription = (mobileusage.get('usage') or {}).get('subscription', {})
+        breakdown = subscription.get('breakdown', {})
+        bars_summary = breakdown.get('barsSummary', {})
+        bars = bars_summary.get('bars', [])
+        tiles = breakdown.get('tiles', [])
+
+        # Plan metadata
+        plan_name = subscription.get('planName', {})
+        self._label = self._product = (
+            plan_name.get('nl') or plan_name.get('en') or
+            self._productSubscription.get('label', '')
+        )
         self._number = self._identifier
-        self._active = self._productSubscription.get('status')
-        self._mobileinternetonly = self._productSubscription.get('isDataOnlyPlan')    
+        self._active = mobileusage.get('lineStatus') or self._productSubscription.get('status')
+        self._mobileinternetonly = self._productSubscription.get('isDataOnly', False)
 
-        shared = False
+        # Period dates
+        next_billing = subscription.get('nextBillingDate')
+        self._period_end_date = next_billing
+        if next_billing:
+            try:
+                from datetime import timezone
+                end_dt = datetime.fromisoformat(next_billing.replace('Z', '+00:00'))
+                self._period_days_left = round((end_dt - datetime.now(timezone.utc)).total_seconds() / 86400, 1)
+            except Exception:
+                self._period_days_left = None
 
-        if mobileusage.get('shared') and self._productSubscription.get('productType') == 'bundle':
-            usage = mobileusage.get('shared')
-            bundle = bundleusage.get('shared')
-            shared = True
-        elif mobileusage.get('included'):
-            if mobileusage.get('total'):
-                usage = mobileusage.get('total')
-            else:
-                usage = mobileusage.get('included')
-                bundle = mobileusage.get('included')
-                shared = True
-        else:
-            _LOGGER.error(f'No shared or included usage found, mobileusage: {mobileusage}, bundleusage: {bundleusage}')
+        # Last update
+        self._last_update = subscription.get('lastUpdated')
+        self._last_update_formatted = _format_last_update(self._last_update)
 
-        if usage:
-            if 'data' in usage:
-                if shared:
-                    data = bundle.get('data')[0]
-                    if 'usedUnits' in data:
-                        self._bundle_total_volume_data = f"{data.get('usedUnits')} {data.get('unitType')}"
-                    if 'usedPercentage' in data:
-                        self._bundle_used_percentage_data = data.get('usedPercentage')
-                    if 'remainingUnits' in data:
-                        self._bundle_remaining_volume_data = f"{data.get('remainingUnits')} {data.get('unitType')}"
-                    data = usage.get('data')[0]
-                else:
-                    data = usage.get('data')
-                if 'usedUnits' in data:
-                    self._total_volume_data = f"{data.get('usedUnits')} {data.get('unitType')}"
-                if 'usedPercentage' in data:
-                    self._used_percentage_data = data.get('usedPercentage')
-                if 'remainingUnits' in data:
-                    self._remaining_volume_data = f"{data.get('remainingUnits')} {data.get('unitType')}"
-                _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_data} {self._used_percentage_data} {self._remaining_volume_data}")
+        # Data bar (bars[] where category == "DATA")
+        data_bar = next((b for b in bars if b.get('category') == 'DATA'), None)
+        if data_bar:
+            consumed = data_bar.get('consumed', 0) or 0
+            remaining = data_bar.get('remaining', 0) or 0
+            total = data_bar.get('total', 0) or 0
+            unit = data_bar.get('unit', 'GB')
+            self._usage_gb = round(consumed, 2)
+            self._max_data_gb = round(total, 2) if total else None
+            self._data_unlimited = data_bar.get('lineType') == 'UNLIMITED'
+            self._used_percentage_data = round(data_bar.get('consumedPercentage', 0) or 0, 1)
+            self._total_volume_data = f"{consumed} {unit}"
+            self._remaining_volume_data = f"{remaining} {unit}"
+        elif bars_summary.get('totalConsumed') is not None:
+            self._usage_gb = round(bars_summary.get('totalConsumed', 0) or 0, 2)
+            self._max_data_gb = round(bars_summary.get('totalAllocated', 0) or 0, 2)
 
-            # Fallback voor monetaire databundels (bv. BASE 15 BoY waarbij €1 = 1 GB)
-            # Als data 0 of leeg is maar monetary wel gevuld, gebruik monetary als GB-equivalent
-            if (not self._used_percentage_data or self._used_percentage_data == 0) and \
-               (not self._total_volume_data or self._total_volume_data == '0 MB'):
-                monetary = mobileusage.get('total', {}).get('monetary', {})
-                if monetary and float(monetary.get('startUnits', '0').replace(',', '.')) > 0:
-                    total_gb = float(monetary.get('startUnits', '0').replace(',', '.'))
-                    remaining_gb = float(monetary.get('remainingUnits', '0').replace(',', '.'))
-                    used_gb = float(monetary.get('usedUnits', '0').replace(',', '.'))
-                    used_pct = monetary.get('usedPercentage', 0)
-                    self._total_volume_data = f"{total_gb:.2f} GB"
-                    self._remaining_volume_data = f"{remaining_gb:.2f} GB"
-                    self._used_percentage_data = used_pct
-                    _LOGGER.debug(f"Mobile {self._identifier}: Monetary fallback - Data {self._total_volume_data} {self._used_percentage_data}% {self._remaining_volume_data}")
-                
-            if 'text' in usage:
-                if shared:
-                    text = bundle.get('text')[0]
-                    if 'usedUnits' in text:
-                        self._bundle_total_volume_text = f"{text.get('usedUnits')}"
-                    text = usage.get('text')[0]
-                else:
-                    text = usage.get('text')
-                if 'usedUnits' in text:
-                    self._total_volume_text = f"{text.get('usedUnits')}"
-                if 'usedPercentage' in text:
-                    self._used_percentage_text = text.get('usedPercentage')
-                if 'remainingUnits' in text:
-                    self._remaining_volume_text = f"{text.get('remainingUnits')}"
-                _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_text} {self._used_percentage_text} {self._remaining_volume_text}")
-                
-            if 'voice' in usage:
-                if shared:
-                    voice = bundle.get('voice')[0]
-                    if 'usedUnits' in voice:
-                        self._bundle_total_volume_voice = f"{voice.get('usedUnits')} {voice.get('unitType').lower()}"
-                    voice = usage.get('voice')[0]
-                else:
-                    voice = usage.get('voice')
-                if 'usedUnits' in voice:
-                    self._total_volume_voice = f"{voice.get('usedUnits')} {voice.get('unitType').lower()}"
-                if 'usedPercentage' in voice:
-                    self._used_percentage_voice = voice.get('usedPercentage')
-                if 'remainingUnits' in voice:
-                    self._remaining_volume_voice = f"{voice.get('remainingUnits')} {voice.get('unitType').lower()}"
-                _LOGGER.debug(f"Mobile {self._identifier}: Data {self._total_volume_voice} {self._used_percentage_voice} {self._remaining_volume_voice}")
-            if self._used_percentage_data != None:
-                self._state = self._used_percentage_data
-            else:
-                if self._bundle_used_percentage_data != None:
-                    self._state = self._bundle_used_percentage_data
-                else:
-                    self._state = self._used_percentage_voice
-        
+        # Voice tile (tiles[] where category == "CALL")
+        self._has_voice = not self._productSubscription.get('isDataOnly', False)
+        call_tile = next((t for t in tiles if t.get('category') == 'CALL'), None)
+        if call_tile:
+            self._voice_used_minutes = round(call_tile.get('consumed', 0) or 0, 1)
+            self._voice_unlimited = call_tile.get('lineType') == 'UNLIMITED'
+            total_voice = call_tile.get('total', 0) or 0
+            self._voice_max_minutes = round(total_voice, 0) if total_voice > 0 else None
+            self._total_volume_voice = f"{self._voice_used_minutes} minutes"
+        elif self._has_voice:
+            self._voice_used_minutes = None
+
+        # SMS tile
+        sms_tile = next((t for t in tiles if t.get('category') == 'SMS'), None)
+        if sms_tile:
+            self._total_volume_text = str(sms_tile.get('consumed', 0))
+
+        self._state = self._used_percentage_data
+
+        # Store parsed values in shared cache for sub-sensors
+        self._data._mobile_parsed[self._identifier] = {
+            'usage_gb': self._usage_gb,
+            'used_percentage_data': self._used_percentage_data,
+            'period_days_left': self._period_days_left,
+            'max_data_gb': self._max_data_gb,
+            'data_unlimited': self._data_unlimited,
+            'has_voice': self._has_voice,
+            'voice_used_minutes': self._voice_used_minutes,
+            'voice_max_minutes': self._voice_max_minutes,
+            'voice_unlimited': self._voice_unlimited,
+            'last_update_formatted': self._last_update_formatted,
+        }
+
     async def async_will_remove_from_hass(self):
         _LOGGER.info("async_will_remove_from_hass " + NAME)
         self._data.clear_session()
@@ -1207,12 +1302,12 @@ class SensorMobile(Entity):
     @property
     def icon(self) -> str:
         return "mdi:cellphone-information"
-        
+
     @property
     def unique_id(self) -> str:
-        return (
-            f"{NAME} mobile {self._productSubscription.get('identifier')}"
-        )
+        label = str(self._productSubscription.get('label', '')).split('/')[0].strip()
+        pid = self._productSubscription.get('identifier')
+        return f"Telenet mobile {label} {pid}".strip()
 
     @property
     def name(self) -> str:
@@ -1244,7 +1339,16 @@ class SensorMobile(Entity):
             "bundle_used_percentage_data" : self._bundle_used_percentage_data,
             "bundle_remaining_volume_data" : self._bundle_remaining_volume_data,
             "bundle_total_volume_text" : self._bundle_total_volume_text,
-            "bundle_total_volume_voice" : self._bundle_total_volume_voice
+            "bundle_total_volume_voice" : self._bundle_total_volume_voice,
+            "usage_gb": self._usage_gb,
+            "period_days_left": self._period_days_left,
+            "max_data_gb": self._max_data_gb,
+            "data_unlimited": self._data_unlimited,
+            "has_voice": self._has_voice,
+            "voice_used_minutes": self._voice_used_minutes,
+            "voice_max_minutes": self._voice_max_minutes,
+            "voice_unlimited": self._voice_unlimited,
+            "last_update_formatted": self._last_update_formatted,
         }
 
     @property
@@ -1261,7 +1365,144 @@ class SensorMobile(Entity):
 
     @property
     def unit_of_measurement(self) -> str:
-        return "%"
+        return "GB"
+
+    @property
+    def friendly_name(self) -> str:
+        return self.unique_id
+
+
+class SensorMobileAttribute(Entity):
+    """Exposes one parsed field from SensorMobile as a separate HA entity.
+
+    Reads from ComponentData._mobile_parsed which is populated by SensorMobile.async_update.
+    No additional API calls are made.
+    """
+
+    def __init__(self, data, productSubscription, hass, field, name_suffix, unit, icon):
+        self._data = data
+        self._productSubscription = productSubscription
+        self._hass = hass
+        self._field = field
+        self._name_suffix = name_suffix
+        self._unit = unit
+        self._icon_str = icon
+
+    @property
+    def _identifier(self):
+        return self._productSubscription.get('identifier')
+
+    @property
+    def state(self):
+        return (self._data._mobile_parsed.get(self._identifier) or {}).get(self._field)
+
+    async def async_update(self):
+        await self._data.update()
+
+    async def async_will_remove_from_hass(self):
+        self._data.clear_session()
+
+    @property
+    def icon(self) -> str:
+        return self._icon_str
+
+    @property
+    def unique_id(self) -> str:
+        label = str(self._productSubscription.get('label', '')).split('/')[0].strip()
+        pid = self._productSubscription.get('identifier')
+        return f"Telenet mobile {label} {pid} {self._name_suffix}".strip()
+
+    @property
+    def name(self) -> str:
+        return self.unique_id
+
+    @property
+    def unit_of_measurement(self):
+        return self._unit
+
+    @property
+    def device_info(self) -> dict:
+        return {
+            "identifiers": {(NAME, self._data.unique_id)},
+            "name": self._data.name,
+            "manufacturer": NAME,
+        }
+
+    @property
+    def friendly_name(self) -> str:
+        return self.unique_id
+
+
+class SensorAnnouncements(Entity):
+    def __init__(self, data, hass):
+        self._data = data
+        self._hass = hass
+        self._last_update = None
+        self._unread_count = None
+        self._messages = None
+
+    @property
+    def state(self):
+        return self._unread_count
+
+    async def async_update(self):
+        await self._data.update()
+        self._last_update = datetime.now().isoformat()
+        inbox = self._data._inbox_messages
+        if inbox is None:
+            self._unread_count = None
+            self._messages = None
+            return
+
+        messages = inbox if isinstance(inbox, list) else inbox.get("messages", [])
+        if messages is None:
+            messages = []
+
+        self._messages = [
+            {
+                "messageId": m.get("messageId") or m.get("id"),
+                "title": m.get("title"),
+                "body": m.get("body") or m.get("content"),
+                "type": m.get("type"),
+                "createdAt": m.get("createdAt") or m.get("publishedAt"),
+                "read": m.get("read", False),
+            }
+            for m in messages
+        ]
+        self._unread_count = sum(1 for m in self._messages if not m.get("read"))
+
+    async def async_will_remove_from_hass(self):
+        _LOGGER.info("async_will_remove_from_hass " + NAME)
+        self._data.clear_session()
+
+    @property
+    def icon(self) -> str:
+        return "mdi:bell-outline"
+
+    @property
+    def unique_id(self) -> str:
+        return f"Telenet announcements {self._data._username}"
+
+    @property
+    def name(self) -> str:
+        return self.unique_id
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return {
+            ATTR_ATTRIBUTION: NAME,
+            "last_update": self._last_update,
+            "unread_count": self._unread_count,
+            "messages": self._messages,
+        }
+
+    @property
+    def device_info(self) -> dict:
+        return {
+            "identifiers": {(NAME, self._data.unique_id)},
+            "name": self._data.name,
+            "manufacturer": NAME,
+        }
 
     @property
     def friendly_name(self) -> str:
