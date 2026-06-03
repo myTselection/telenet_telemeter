@@ -88,7 +88,7 @@ class TestLiveInboxAPI(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.session = TelenetSession()
+        cls.session = TelenetSession(provider="Telenet Business")
         cls.session.login(_USERNAME, _PASSWORD)
 
     def test_login_succeeds(self):
@@ -153,7 +153,7 @@ class TestLiveInternetUsage(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.session = TelenetSession()
+        cls.session = TelenetSession(provider="Telenet Business")
         cls.session.login(_USERNAME, _PASSWORD)
 
     def test_api_version2_returns_bool(self):
@@ -272,7 +272,7 @@ class TestLiveMobileUsage(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.session = TelenetSession()
+        cls.session = TelenetSession(provider="Telenet Business")
         cls.session.login(_USERNAME, _PASSWORD)
         cls.mobile_subs = cls.session.productSubscriptions("MOBILE")
 

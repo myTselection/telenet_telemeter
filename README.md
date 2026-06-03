@@ -24,8 +24,7 @@ Originally based on the Python application by [Killian Meersman](https://github.
   - [![Open your Home Assistant instance and open the repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg?style=flat-square)](https://my.home-assistant.io/redirect/hacs_repository/?owner=myTselection&repository=telenet_telemeter&category=integration)
 - Restart Home Assistant
 - Add **Telenet Telemeter** via HA Settings → Devices & Services → Integrations
-- Provide your Telenet or BASE username and password
-  - Telenet Business accounts are not supported
+- Provide your Telenet, Telenet Business or BASE username and password
 
 ---
 

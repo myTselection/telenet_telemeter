@@ -3,7 +3,7 @@
         "title": "Telenet / BASE Telemeter",
         "step": {
             "user": {
-                "description": "Setup a Telenet or BASE Telemeter sensor. Select your provider, enter your username and password, and indicate if internet and/or mobile usage is to be tracked.",
+                "description": "Setup a Telenet, Telenet Business or BASE Telemeter sensor. Select your provider, enter your username and password, and indicate if internet and/or mobile usage is to be tracked.",
                 "data": {
                     "provider": "Provider",
                     "username": "Email",
@@ -13,7 +13,7 @@
                 }
             },
             "edit": {
-                "description": "Edit Telenet or BASE Telemeter sensor setup.",
+                "description": "Edit Telenet, Telenet Business or BASE Telemeter sensor setup.",
                 "data": {
                     "provider": "Provider",
                     "username": "Email",
@@ -35,7 +35,7 @@
     "options": {
         "step": {
             "edit": {
-                "description": "Edit Telenet or BASE Telemeter sensor setup.",
+                "description": "Edit Telenet, Telenet Business or BASE Telemeter sensor setup.",
                 "data": {
                     "provider": "Provider",
                     "username": "Email",
