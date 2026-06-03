@@ -1,13 +1,18 @@
 {
     "domain": "telenet_telemeter",
     "name": "Telenet Telemeter",
-    "codeowners": ["@myTselection"],
+    "codeowners": [
+        "@myTselection"
+    ],
     "config_flow": true,
     "dependencies": [],
     "documentation": "https://github.com/myTselection/telenet_telemeter",
     "integration_type": "hub",
     "iot_class": "cloud_polling",
     "issue_tracker": "https://github.com/myTselection/telenet_telemeter/issues",
-    "requirements": ["beautifulsoup4", "html5lib"],
+    "requirements": [
+        "beautifulsoup4",
+        "html5lib"
+    ],
     "version": "3.2.1"
 }

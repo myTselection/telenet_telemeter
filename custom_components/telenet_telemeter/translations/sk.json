@@ -3,7 +3,7 @@
         "title": "Telenet / BASE Telemeter",
         "step": {
             "user": {
-                "description": "Nastavte snímač Telenet alebo BASE Telemeter. Vyberte svojho poskytovateľa, zadajte používateľské meno a heslo a uveďte, či sa má sledovať používanie internetu a/alebo mobilu.",
+                "description": "Nastavte snímač Telenet, Telenet Business alebo BASE Telemeter. Vyberte svojho poskytovateľa, zadajte používateľské meno a heslo a uveďte, či sa má sledovať používanie internetu a/alebo mobilu.",
                 "data": {
                     "provider": "Poskytovateľ",
                     "username": "Používateľské meno",
@@ -13,7 +13,7 @@
                 }
             },
             "edit": {
-                "description": "Upraviť nastavenie snímača Telenet alebo BASE Telemeter.",
+                "description": "Upraviť nastavenie snímača Telenet, Telenet Business alebo BASE Telemeter.",
                 "data": {
                     "provider": "Poskytovateľ",
                     "username": "Používateľské meno",
@@ -35,7 +35,7 @@
     "options": {
         "step": {
             "edit": {
-                "description": "Upraviť nastavenie snímača Telenet alebo BASE Telemeter.",
+                "description": "Upraviť nastavenie snímača Telenet, Telenet Business alebo BASE Telemeter.",
                 "data": {
                     "provider": "Poskytovateľ",
                     "username": "Používateľské meno",

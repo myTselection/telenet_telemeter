@@ -3,7 +3,7 @@
         "title": "Telenet / BASE Telemeter",
         "step": {
             "user": {
-                "description": "Configurez un capteur Telenet ou BASE Telemeter. Choisissez votre fournisseur, entrez votre nom d'utilisateur et mot de passe, et indiquez si l'utilisation d'internet et/ou de mobile doit être suivie.",
+                "description": "Configurez un capteur Telenet, Telenet Business ou BASE Telemeter. Choisissez votre fournisseur, entrez votre nom d'utilisateur et mot de passe, et indiquez si l'utilisation d'internet et/ou de mobile doit être suivie.",
                 "data": {
                     "provider": "Fournisseur",
                     "username": "E-mail",
@@ -13,7 +13,7 @@
                 }
             },
             "edit": {
-                "description": "Modifier la configuration du capteur Telenet ou BASE Telemeter.",
+                "description": "Modifier la configuration du capteur Telenet, Telenet Business ou BASE Telemeter.",
                 "data": {
                     "provider": "Fournisseur",
                     "username": "E-mail",
@@ -35,7 +35,7 @@
     "options": {
         "step": {
             "edit": {
-                "description": "Modifier la configuration du capteur Telenet ou BASE Telemeter.",
+                "description": "Modifier la configuration du capteur Telenet, Telenet Business ou BASE Telemeter.",
                 "data": {
                     "provider": "Fournisseur",
                     "username": "E-mail",

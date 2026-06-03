@@ -162,6 +162,7 @@ try:
     import custom_components.telenet_telemeter.sensor as _sensor_mod
     SensorAnnouncements = _sensor_mod.SensorAnnouncements
     SensorInternet = _sensor_mod.SensorInternet
+    SensorPeak = _sensor_mod.SensorPeak
     _SENSOR_AVAILABLE = True
 except Exception:
     _SENSOR_AVAILABLE = False
@@ -310,6 +311,89 @@ class TestUsageGb(unittest.TestCase):
         attrs = sensor.extra_state_attributes
         self.assertIn("usage_gb", attrs)
         self.assertAlmostEqual(attrs["usage_gb"], 150.0)
+
+
+class TestTelenetBusinessSupport(unittest.TestCase):
+
+    def test_business_provider_config(self):
+        session = TelenetSession(provider="Telenet Business")
+        self.assertEqual(session.provider, "Telenet Business")
+        self.assertEqual(session.api_url, "https://api.prd.telenet.be")
+        self.assertEqual(session.cfg.get("authorization_url"), "https://api.prd.telenet.be/ocapi/login/authorization/telenet_be?lang=nl&style_hint=care&targetUrl=https://www2.telenet.be/business/nl/mytelenet/")
+        self.assertEqual(session.cfg.get("alt_referer"), "https://www2.telenet.be/business/nl/mijn-telenet/")
+
+    @unittest.skipUnless(_SENSOR_AVAILABLE, "sensor module could not be imported without HA")
+    def test_sensor_unlimited_business_plan_async_update(self):
+        product_details = {
+            "product": {
+                "labelkey": "KLIK (2 SIM's & limited mobile data)",
+                "characteristics": {
+                    "elementarycharacteristics": [
+                        {"key": "producttier", "value": "High"},
+                        {"key": "max_mobile_lines", "value": "2"},
+                        {"key": "sharedmobiledata", "value": "60", "unit": "GB"}
+                    ]
+                },
+                "services": [
+                    {
+                        "servicetype": "FIXED_INTERNET",
+                        "specifications": [
+                            {"labelkey": "spec.fixedinternet.speed.download", "value": "300", "unit": "Mbps"},
+                            {"labelkey": "spec.fixedinternet.speed.upload", "value": "30", "unit": "Mbps"}
+                        ]
+                    }
+                ]
+            }
+        }
+        telemeter = {
+            "startDate": "2026-05-04",
+            "endDate": "2026-06-03",
+            "internet": {
+                "category": "UNLIMITED",
+                "allocatedUsage": {
+                    "units": 0,
+                    "usedUnits": 1388.36,
+                    "unitType": "GB",
+                    "lastUsageDate": "2026-06-03T20:17:00"
+                },
+                "totalUsage": {
+                    "units": 1388.36,
+                    "unitType": "GB",
+                    "lastUsageDate": "2026-06-03T20:17:00"
+                }
+            },
+            "internetUsage": [
+                {
+                    "date": "2026-06-03",
+                    "totalUsage": {
+                        "peak": 1388.36,
+                        "offPeak": 0,
+                        "total": 1388.36
+                    }
+                }
+            ],
+            "wifidetails": {
+                "modemMac": "xx:xx:xx",
+                "wifiEnabled": True,
+                "wifreeEnabled": True
+            }
+        }
+        data = _make_component_data(v2=True, telemeter=telemeter, product_details=product_details)
+        
+        # Test SensorInternet
+        sensor_internet = SensorInternet(data, None)
+        import asyncio
+        asyncio.get_event_loop().run_until_complete(sensor_internet.async_update())
+        self.assertEqual(sensor_internet._included_volume, 0)
+        self.assertEqual(sensor_internet._extended_volume, 0)
+        self.assertEqual(sensor_internet._total_volume, 0.0)
+
+        # Test SensorPeak
+        sensor_peak = SensorPeak(data, None)
+        asyncio.get_event_loop().run_until_complete(sensor_peak.async_update())
+        self.assertEqual(sensor_peak._included_volume, 0)
+        self.assertEqual(sensor_peak._extended_volume, 0)
+        self.assertEqual(sensor_peak._total_volume, 0.0)
 
 
 if __name__ == "__main__":
