@@ -1,13 +1,13 @@
 {
     "domain": "telenet_telemeter",
-    "name": "Telenet Telemeter",
+    "name": "Telenet Telemeter (Business Fork)",
     "codeowners": ["@myTselection"],
     "config_flow": true,
     "dependencies": [],
-    "documentation": "https://github.com/myTselection/telenet_telemeter",
+    "documentation": "https://github.com/EwoutDeCoster/telenet_telemeter",
     "integration_type": "hub",
     "iot_class": "cloud_polling",
-    "issue_tracker": "https://github.com/myTselection/telenet_telemeter/issues",
+    "issue_tracker": "https://github.com/EwoutDeCoster/telenet_telemeter/issues",
     "requirements": ["beautifulsoup4", "html5lib"],
-    "version": "3.2.1"
+    "version": "3.2.1-business"
 }
