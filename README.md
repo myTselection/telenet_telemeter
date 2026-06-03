@@ -1,13 +1,13 @@
-[![HACS Default](https://img.shields.io/badge/HACS-Default-blue.svg)](https://github.com/hacs/default)
-[![GitHub release](https://img.shields.io/github/release/myTselection/telenet_telemeter.svg)](https://github.com/myTselection/telenet_telemeter/releases)
-![GitHub repo size](https://img.shields.io/github/repo-size/myTselection/telenet_telemeter.svg)
+[![HACS Default](https://img.shields.io/badge/HACS-Custom-blue.svg)](https://github.com/hacs/default)
+[![GitHub release](https://img.shields.io/github/release/EwoutDeCoster/telenet_telemeter.svg)](https://github.com/EwoutDeCoster/telenet_telemeter/releases)
+![GitHub repo size](https://img.shields.io/github/repo-size/EwoutDeCoster/telenet_telemeter.svg)
 
-[![GitHub issues](https://img.shields.io/github/issues/myTselection/telenet_telemeter.svg)](https://github.com/myTselection/telenet_telemeter/issues)
-[![GitHub last commit](https://img.shields.io/github/last-commit/myTselection/telenet_telemeter.svg)](https://github.com/myTselection/telenet_telemeter/commits/main)
-[![GitHub commit activity](https://img.shields.io/github/commit-activity/m/myTselection/telenet_telemeter.svg)](https://github.com/myTselection/telenet_telemeter/graphs/commit-activity)
+[![GitHub issues](https://img.shields.io/github/issues/EwoutDeCoster/telenet_telemeter.svg)](https://github.com/EwoutDeCoster/telenet_telemeter/issues)
+[![GitHub last commit](https://img.shields.io/github/last-commit/EwoutDeCoster/telenet_telemeter.svg)](https://github.com/EwoutDeCoster/telenet_telemeter/commits/master)
+[![GitHub commit activity](https://img.shields.io/github/commit-activity/m/EwoutDeCoster/telenet_telemeter.svg)](https://github.com/EwoutDeCoster/telenet_telemeter/graphs/commit-activity)
 
 
-# Telenet / BASE Telemeter Home Assistant integration
+# Telenet / BASE Telemeter Home Assistant integration (Business Support Fork)
 [Telenet Telemeter](https://www2.telenet.be/nl/business/klantenservice/raadpleeg-uw-internetverbruik/) Home Assistant custom component also supporting [BASE Telemeter](https://www.base.be/nl/klantenzone/internet/je-internetverbruik.html). This custom component brings your Telenet & BASE internet and mobile usage details into Home Assistant. This integration is built against the public API used by the Telenet web app and has not been tested for any other countries. BASE is owned by Telenet and uses similar tools, so both products are supported since release 3.0.
 
 This integration is in no way affiliated with Telenet Belgium.
@@ -20,10 +20,9 @@ Originally based on the Python application by [Killian Meersman](https://github.
 <p align="left"><img src="./logo.png" width="64"/></p>
 
 ## Installation
-- [HACS](https://hacs.xyz/): search for **Telenet Telemeter** in HACS integrations and install
-  - [![Open your Home Assistant instance and open the repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg?style=flat-square)](https://my.home-assistant.io/redirect/hacs_repository/?owner=myTselection&repository=telenet_telemeter&category=integration)
+- [HACS](https://hacs.xyz/): Add `https://github.com/EwoutDeCoster/telenet_telemeter` as a custom repository under HACS integration category and install
 - Restart Home Assistant
-- Add **Telenet Telemeter** via HA Settings → Devices & Services → Integrations
+- Add **Telenet Telemeter (Business Fork)** via HA Settings → Devices & Services → Integrations
 - Provide your Telenet, Telenet Business or BASE username and password
 
 ---
