@@ -1179,6 +1179,8 @@ class SensorMobile(Entity):
         self._voice_max_minutes = None
         self._voice_unlimited = False
         self._last_update_formatted = None
+        self._oob_total_eur = None
+        self._oob_details = None
 
     @property
     def state(self):
@@ -1281,6 +1283,21 @@ class SensorMobile(Entity):
 
         self._state = self._used_percentage_data
 
+        # Out-of-bundle usage (€) — fetched from old v3 API which is the only source for this
+        try:
+            oob = await self._hass.async_add_executor_job(
+                lambda: self._data._session.mobileOutOfBundle(self._identifier)
+            )
+            if oob is not None:
+                self._oob_total_eur = oob.get('usedUnits', '0')
+                self._oob_details = {
+                    d['type']: d['value']
+                    for d in (oob.get('details') or [])
+                    if d.get('value', 0) != 0 or True  # keep all for visibility
+                }
+        except Exception as e:
+            _LOGGER.debug(f"OOB fetch failed for {self._identifier}: {e}")
+
         # Store parsed values in shared cache for sub-sensors
         self._data._mobile_parsed[self._identifier] = {
             'usage_gb': self._usage_gb,
@@ -1349,6 +1366,8 @@ class SensorMobile(Entity):
             "voice_max_minutes": self._voice_max_minutes,
             "voice_unlimited": self._voice_unlimited,
             "last_update_formatted": self._last_update_formatted,
+            "outofbundle_eur": self._oob_total_eur,
+            "outofbundle_details": self._oob_details,
         }
 
     @property

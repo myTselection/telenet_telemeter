@@ -302,6 +302,17 @@ class TelenetSession(object):
             return response.json()
         return None
 
+    def mobileOutOfBundle(self, msisdn):
+        """Return out-of-bundle usage dict from the v3 API, or None on failure.
+        Structure: {usedUnits, unitType, details:[{type, value}]}"""
+        response = self._call_with_retry(
+            f"{self.api_url}/ocapi/public/api/mobile-service/v3/mobilesubscriptions/{msisdn}/usages",
+            "mobileOutOfBundle"
+        )
+        if response is not None and response.status_code == 200:
+            return response.json().get('outOfBundle')
+        return None
+
     def mobileLines(self):
         """List all mobile lines: [{msisdn, isDataOnly, status, name}]"""
         response = self.callTelenet(
