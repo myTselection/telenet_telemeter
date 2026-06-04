@@ -85,6 +85,23 @@ Binary sensor (`on` = peak hours active). Attributes include `peak_usage`, `offp
 | `total_volume_voice` | Voice used string | `50.8 minutes` |
 | `mobileinternetonly` | Data-only SIM | `false` |
 | `active` | Line status | `ACTIVE` |
+| `outofbundle_eur` | Total out-of-bundle spend this period (€) | `"0"` |
+| `outofbundle_details` | OOB breakdown by category (€) | see below |
+
+**Out-of-bundle detail keys** (`outofbundle_details` dict):
+
+| Key | Description |
+|---|---|
+| `OOB_NATIONAL_VOICE` | Calls to Belgian numbers outside bundle |
+| `OOB_INTERNATIONAL_VOICE` | International calls outside bundle |
+| `OOB_ROAMING_VOICE` | Roaming voice calls |
+| `OOB_NATIONAL_SMS` | National SMS outside bundle |
+| `OOB_INTERNATIONAL_SMS` | International SMS |
+| `OOB_ROAMING_SMS` | Roaming SMS |
+| `OOB_MMS` | MMS messages |
+| `OOB_NATIONAL_DATA` | Data outside bundle |
+| `OOB_ROAMING_DATA` | Roaming data outside bundle |
+| `OOB_PAY_BY_MOBILE_AND_PREMIUM` | Premium / pay-by-mobile charges |
 
 #### Mobile sub-sensors (auto-created per SIM)
 
