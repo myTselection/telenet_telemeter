@@ -9,5 +9,5 @@
     "iot_class": "cloud_polling",
     "issue_tracker": "https://github.com/myTselection/telenet_telemeter/issues",
     "requirements": ["beautifulsoup4", "html5lib"],
-    "version": "3.2.3"
+    "version": "3.3.0"
 }
