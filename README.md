@@ -31,7 +31,7 @@ Originally based on the Python application by [Killian Meersman](https://github.
 
 ## Sensors
 
-### Internet — `sensor.telenet_internet_<label>_<id>`
+### Internet — `sensor.telenet_telemeter_internet_w<id>`
 
 **State:** data used in **GB** (FUP counter for TURBO/FUP plans; CAP plans show GB consumed of allocated cap).
 
