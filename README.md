@@ -58,7 +58,7 @@ Originally based on the Python application by [Killian Meersman](https://github.
 
 ---
 
-### Peak indicator — `sensor.telenet_peak_<label>_<id>`
+### Peak indicator — `sensor.telenet_telemeter_peak_<label>_<id>`
 
 Binary sensor (`on` = peak hours active). Attributes include `peak_usage`, `offpeak_usage`, `used_percentage`, `download_speed`, `squeezed`.
 
