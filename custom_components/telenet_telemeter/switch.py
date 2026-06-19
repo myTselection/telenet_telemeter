@@ -21,6 +21,14 @@ def _suggested_object_id(*parts) -> str:
     return _entity_name(*parts)
 
 
+def _as_dict(value):
+    return value if isinstance(value, dict) else {}
+
+
+def _as_list(value):
+    return value if isinstance(value, list) else []
+
+
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Old way."""
 
@@ -85,25 +93,30 @@ class ComponentSwitch():
         internetProductIdentifier = wifiDetails.get('internetProductIdentifier')
         modemMac = wifiDetails.get('modemMac')
         if not internetProductIdentifier or not modemMac:
-            internetProductDetails = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("INTERNET"))
+            internetProductDetails = _as_list(await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("INTERNET")))
             bundle = get_desired_internet_product(internetProductDetails, "internet")
             internetProductIdentifier = bundle.get('identifier')
-            modemDetails = await self._hass.async_add_executor_job(lambda: self._session.modemdetails(internetProductIdentifier))
+            modemDetails = _as_dict(await self._hass.async_add_executor_job(lambda: self._session.modemdetails(internetProductIdentifier))) if internetProductIdentifier else {}
             modemMac = modemDetails.get('mac')
         self._identifier = internetProductIdentifier
+        if not internetProductIdentifier or not modemMac:
+            _LOGGER.warning("Cannot change Wi-Fi state without internet product identifier and modem MAC")
+            return
 
-        productServiceDetails = await self._hass.async_add_executor_job(lambda: self._session.productService(internetProductIdentifier, "INTERNET"))
+        productServiceDetails = _as_dict(await self._hass.async_add_executor_job(lambda: self._session.productService(internetProductIdentifier, "INTERNET"))) if internetProductIdentifier else {}
         customerLocationId = productServiceDetails.get('locationId')
         
-        for lineLevelProduct in productServiceDetails.get('lineLevelProducts',[]):
+        for lineLevelProduct in _as_list(productServiceDetails.get('lineLevelProducts')):
+            lineLevelProduct = _as_dict(lineLevelProduct)
             if lineLevelProduct.get('specurl'):
                 urlDetails = await self._hass.async_add_executor_job(lambda: self._session.urldetails(lineLevelProduct.get('specurl')))
 
-        for option in productServiceDetails.get('options',[]):
+        for option in _as_list(productServiceDetails.get('options')):
+            option = _as_dict(option)
             if option.get('specurl'):
                 urlDetails = await self._hass.async_add_executor_job(lambda: self._session.urldetails(option.get('specurl')))
 
-        wifiStatus = await self._hass.async_add_executor_job(lambda: self._session.wifiStatus(internetProductIdentifier, modemMac))
+        wifiStatus = _as_dict(await self._hass.async_add_executor_job(lambda: self._session.wifiStatus(internetProductIdentifier, modemMac))) if internetProductIdentifier and modemMac else {}
         _LOGGER.debug(f"wifiStatus switch handle: {wifiStatus}")
         wifiEnabled = wifiStatus.get('cos') == 'WSO_SHARING'
 

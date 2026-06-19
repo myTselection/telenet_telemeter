@@ -116,6 +116,8 @@ def _make_component_data(inbox=None, v2=True, telemeter=None, product_details=No
     data._username = "test@example.com"
     data.unique_id = "Telenet Telemeter test@example.com"
     data.name = "Telenet Telemeter"
+    data._mobile_line_usage = {}
+    data._mobile_parsed = {}
     # update() is a no-op coroutine
     async def noop_update():
         pass
@@ -189,6 +191,7 @@ class TestTelenetSessionInbox(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 try:
+    import custom_components.telenet_telemeter.coordinator as _coord_mod
     import custom_components.telenet_telemeter.sensor as _sensor_mod
     import custom_components.telenet_telemeter.switch as _switch_mod
     SensorAnnouncements = _sensor_mod.SensorAnnouncements
@@ -198,6 +201,9 @@ try:
     SensorMobile = _sensor_mod.SensorMobile
     SensorMobileAttribute = _sensor_mod.SensorMobileAttribute
     WifiSwitch = _switch_mod.WifiSwitch
+    get_desired_internet_product = _coord_mod.get_desired_internet_product
+    _internet_identifier_from_product = _coord_mod._internet_identifier_from_product
+    _parse_mobile_line_usage = _coord_mod._parse_mobile_line_usage
     _SENSOR_AVAILABLE = True
 except Exception:
     _SENSOR_AVAILABLE = False
@@ -367,6 +373,137 @@ class TestEntityNames(unittest.TestCase):
         self.assertEqual(switch.name, "Wifi W12345678")
         self.assertEqual(switch.suggested_object_id, "Wifi W12345678")
         self.assertEqual(switch.device_info["name"], "Telenet Telemeter")
+
+
+@unittest.skipUnless(_SENSOR_AVAILABLE, "sensor module could not be imported without HA")
+class TestEmptyDataDefaults(unittest.TestCase):
+
+    def test_internet_empty_v2_payload_defaults_to_zero(self):
+        data = _make_component_data(v2=True, telemeter={}, product_details={})
+        sensor = SensorInternet(data, None)
+        sensor._update_from_data()
+        attrs = sensor.extra_state_attributes
+        self.assertEqual(sensor.state, 0)
+        self.assertEqual(attrs["usage_gb"], 0)
+        self.assertEqual(attrs["used_percentage"], 0)
+        self.assertEqual(attrs["period_days_left"], 0)
+        self.assertEqual(attrs["total_volume"], 0)
+
+    def test_internet_zero_total_volume_uses_percentage_fallback(self):
+        data = _make_component_data(
+            v2=True,
+            telemeter={
+                "internet": {
+                    "category": "CAP",
+                    "totalUsage": {"units": 5},
+                    "allocatedUsage": {"units": 0},
+                    "extendedUsage": {"volume": 0},
+                    "usedPercentage": 80,
+                },
+                "internetUsage": [],
+            },
+            product_details={},
+        )
+        sensor = SensorInternet(data, None)
+        sensor._update_from_data()
+        attrs = sensor.extra_state_attributes
+        self.assertEqual(sensor.state, 5)
+        self.assertEqual(attrs["used_percentage"], 80)
+        self.assertEqual(attrs["total_volume"], 0)
+
+    def test_legacy_cap_usage_uses_included_and_extended_counters(self):
+        mib = 1024 * 1024
+        data = _make_component_data(
+            v2=False,
+            telemeter={
+                "internetusage": [
+                    {
+                        "lastupdated": "2026-06-19T08:00:00.0+0200",
+                        "availableperiods": [
+                            {
+                                "usages": [
+                                    {
+                                        "producttype": "internet",
+                                        "periodstart": "2026-06-01T00:00:00.0+0200",
+                                        "periodend": "2026-06-30T00:00:00.0+0200",
+                                        "includedvolume": 200 * mib,
+                                        "extendedvolume": {"volume": 0},
+                                        "totalusage": {
+                                            "peak": None,
+                                            "includedvolume": 50 * mib,
+                                            "extendedvolume": 10 * mib,
+                                        },
+                                    }
+                                ]
+                            }
+                        ],
+                    }
+                ]
+            },
+            product_details={},
+        )
+        sensor = SensorInternet(data, None)
+        sensor._update_from_data()
+        attrs = sensor.extra_state_attributes
+        self.assertEqual(sensor.state, 60)
+        self.assertEqual(attrs["usage_gb"], 60)
+        self.assertEqual(attrs["includedvolume_usage"], 50 * mib)
+        self.assertEqual(attrs["extendedvolume_usage"], 10 * mib)
+
+    def test_peak_empty_v2_payload_defaults_to_zero(self):
+        data = _make_component_data(v2=True, telemeter={}, product_details={})
+        sensor = SensorPeak(data, None)
+        sensor._update_from_data()
+        attrs = sensor.extra_state_attributes
+        self.assertEqual(attrs["used_percentage"], 0)
+        self.assertEqual(attrs["peak_usage"], 0)
+        self.assertEqual(attrs["offpeak_usage"], 0)
+        self.assertIsInstance(sensor.is_on, bool)
+
+    def test_mobile_missing_cache_defaults_to_zero(self):
+        data = _make_component_data()
+        sensor = SensorMobile(data, {"identifier": "M12345678"}, None)
+        sensor._update_from_data()
+        self.assertEqual(sensor.state, 0)
+
+    def test_mobile_attribute_missing_cache_defaults_by_type(self):
+        data = _make_component_data()
+        numeric = SensorMobileAttribute(data, {"identifier": "M12345678"}, None, "usage_gb", "usage", "GB", "mdi:database")
+        text = SensorMobileAttribute(data, {"identifier": "M12345678"}, None, "last_update_formatted", "last update", None, "mdi:clock")
+        self.assertEqual(numeric.state, 0)
+        self.assertIsNone(text.state)
+
+    def test_mobile_parser_empty_payload_defaults_to_zero(self):
+        parsed = _parse_mobile_line_usage({"identifier": "M12345678"}, {})
+        self.assertEqual(parsed["usage_gb"], 0)
+        self.assertEqual(parsed["used_percentage_data"], 0)
+        self.assertEqual(parsed["voice_used_minutes"], 0)
+        self.assertEqual(parsed["period_days_left"], 0)
+
+    def test_empty_internet_product_list_returns_empty_product(self):
+        self.assertEqual(get_desired_internet_product([], "internet"), {})
+
+    def test_bundle_without_internet_child_keeps_bundle_identifier(self):
+        product = {
+            "identifier": "BUNDLE123",
+            "productType": "bundle",
+            "products": [
+                {"identifier": "TV123", "productType": "television"},
+                {"identifier": "MOB123", "productType": "mobile"},
+            ],
+        }
+        self.assertEqual(_internet_identifier_from_product(product), "BUNDLE123")
+
+    def test_bundle_with_internet_child_uses_internet_identifier(self):
+        product = {
+            "identifier": "BUNDLE123",
+            "productType": "bundle",
+            "products": [
+                {"identifier": "TV123", "productType": "television"},
+                {"identifier": "W12345678", "productType": "internet"},
+            ],
+        }
+        self.assertEqual(_internet_identifier_from_product(product), "W12345678")
 
 
 # ---------------------------------------------------------------------------
