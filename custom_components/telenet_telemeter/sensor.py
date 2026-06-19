@@ -34,6 +34,23 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 
 PARALLEL_UPDATES = 1
 
+
+def _entity_name(*parts) -> str:
+    return " ".join(str(part).strip() for part in parts if part is not None and str(part).strip())
+
+
+def _suggested_object_id(*parts) -> str:
+    return _entity_name(*parts)
+
+
+def _mobile_subscription_identifier(product_subscription):
+    return product_subscription.get('identifier') or product_subscription.get('msisdn')
+
+
+def _internet_identifier(data):
+    return (data._telemeter or {}).get('productIdentifier')
+
+
 async def dry_setup(hass, config_entry, async_add_devices, data_by_type=None):
     config = config_entry
     username = config.get("username")
@@ -344,7 +361,11 @@ class SensorInternet(TelenetCoordinatorEntity, Entity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name("internet", _internet_identifier(self._data))
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id("internet", _internet_identifier(self._data))
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -397,7 +418,7 @@ class SensorInternet(TelenetCoordinatorEntity, Entity):
 
     @property
     def friendly_name(self) -> str:
-        return self.unique_id
+        return self.name
 
 
 class SensorPeak(TelenetCoordinatorEntity, BinarySensorEntity):
@@ -549,7 +570,11 @@ class SensorPeak(TelenetCoordinatorEntity, BinarySensorEntity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name("peak", _internet_identifier(self._data))
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id("peak", _internet_identifier(self._data))
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -569,7 +594,7 @@ class SensorPeak(TelenetCoordinatorEntity, BinarySensorEntity):
 
     @property
     def friendly_name(self) -> str:
-        return self.unique_id
+        return self.name
 
     @property
     def device_info(self) -> dict:
@@ -653,7 +678,11 @@ class ComponentMobileShared(TelenetCoordinatorEntity, Entity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name("mobile shared", self._productid)
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id("mobile shared", self._productid)
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -693,7 +722,7 @@ class ComponentMobileShared(TelenetCoordinatorEntity, Entity):
 
     @property
     def friendly_name(self) -> str:
-        return self.unique_id
+        return self.name
         
 class SensorMobileUnassigned(TelenetCoordinatorEntity, Entity):
     def __init__(self, data, productid, subsid, hass):
@@ -774,7 +803,17 @@ class SensorMobileUnassigned(TelenetCoordinatorEntity, Entity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name(
+            "mobile",
+            self._data._mobilemeter.get('mobileusage')[self._productid].get('unassigned').get('mobilesubscriptions')[self._subsid].get('mobile')
+        )
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id(
+            "mobile",
+            self._data._mobilemeter.get('mobileusage')[self._productid].get('unassigned').get('mobilesubscriptions')[self._subsid].get('mobile')
+        )
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -817,7 +856,7 @@ class SensorMobileUnassigned(TelenetCoordinatorEntity, Entity):
 
     @property
     def friendly_name(self) -> str:
-        return self.unique_id
+        return self.name
         
 class SensorMobileAssigned(TelenetCoordinatorEntity, Entity):
     def __init__(self, data, productid, profileid, subsid, hass):
@@ -910,7 +949,17 @@ class SensorMobileAssigned(TelenetCoordinatorEntity, Entity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name(
+            "mobile",
+            self._data._mobilemeter.get('mobileusage')[self._productid].get('profiles')[self._profileid].get('mobilesubscriptions')[self._subsid].get('mobile')
+        )
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id(
+            "mobile",
+            self._data._mobilemeter.get('mobileusage')[self._productid].get('profiles')[self._profileid].get('mobilesubscriptions')[self._subsid].get('mobile')
+        )
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -956,7 +1005,7 @@ class SensorMobileAssigned(TelenetCoordinatorEntity, Entity):
 
     @property
     def friendly_name(self) -> str:
-        return self.unique_id
+        return self.name
   
 class SensorMobile(TelenetCoordinatorEntity, Entity):
     def __init__(self, data, productSubscription, hass):
@@ -1075,12 +1124,16 @@ class SensorMobile(TelenetCoordinatorEntity, Entity):
     @property
     def unique_id(self) -> str:
         label = str(self._productSubscription.get('label', '')).split('/')[0].strip()
-        pid = self._productSubscription.get('identifier')
+        pid = _mobile_subscription_identifier(self._productSubscription)
         return f"Telenet mobile {label} {pid}".strip()
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name("mobile", _mobile_subscription_identifier(self._productSubscription))
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id("mobile", _mobile_subscription_identifier(self._productSubscription))
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -1140,7 +1193,7 @@ class SensorMobile(TelenetCoordinatorEntity, Entity):
 
     @property
     def friendly_name(self) -> str:
-        return self.unique_id
+        return self.name
 
 
 class SensorMobileAttribute(TelenetCoordinatorEntity, Entity):
@@ -1160,7 +1213,7 @@ class SensorMobileAttribute(TelenetCoordinatorEntity, Entity):
 
     @property
     def _identifier(self):
-        return self._productSubscription.get('identifier')
+        return _mobile_subscription_identifier(self._productSubscription)
 
     @property
     def state(self):
@@ -1176,12 +1229,16 @@ class SensorMobileAttribute(TelenetCoordinatorEntity, Entity):
     @property
     def unique_id(self) -> str:
         label = str(self._productSubscription.get('label', '')).split('/')[0].strip()
-        pid = self._productSubscription.get('identifier')
+        pid = _mobile_subscription_identifier(self._productSubscription)
         return f"Telenet mobile {label} {pid} {self._name_suffix}".strip()
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name("mobile", _mobile_subscription_identifier(self._productSubscription), self._name_suffix)
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id("mobile", _mobile_subscription_identifier(self._productSubscription), self._name_suffix)
 
     @property
     def unit_of_measurement(self):
@@ -1197,7 +1254,7 @@ class SensorMobileAttribute(TelenetCoordinatorEntity, Entity):
 
     @property
     def friendly_name(self) -> str:
-        return self.unique_id
+        return self.name
 
 
 class SensorAnnouncements(TelenetCoordinatorEntity, Entity):
@@ -1250,7 +1307,11 @@ class SensorAnnouncements(TelenetCoordinatorEntity, Entity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name("announcements")
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id("announcements")
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -1271,4 +1332,4 @@ class SensorAnnouncements(TelenetCoordinatorEntity, Entity):
 
     @property
     def friendly_name(self) -> str:
-        return self.unique_id
+        return self.name

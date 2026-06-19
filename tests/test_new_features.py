@@ -48,6 +48,7 @@ for _mod_name in [
     "homeassistant.helpers.update_coordinator",
     "homeassistant.helpers.typing", "homeassistant.components",
     "homeassistant.components.sensor", "homeassistant.components.binary_sensor",
+    "homeassistant.components.switch",
     "homeassistant.const", "homeassistant.util",
     "voluptuous",
 ]:
@@ -80,6 +81,7 @@ sys.modules["homeassistant.helpers.update_coordinator"].DataUpdateCoordinator = 
 sys.modules["homeassistant.helpers.update_coordinator"].UpdateFailed = Exception
 sys.modules["homeassistant.components.binary_sensor"].BinarySensorEntity = object
 sys.modules["homeassistant.components.binary_sensor"].DEVICE_CLASSES = []
+sys.modules["homeassistant.components.switch"].SwitchEntity = object
 sys.modules["homeassistant.util"].Throttle = lambda d: (lambda f: f)
 _ps_mod = sys.modules["homeassistant.components.sensor"]
 _ps_mock = MagicMock()
@@ -113,7 +115,7 @@ def _make_component_data(inbox=None, v2=True, telemeter=None, product_details=No
     data._product_details = product_details or {}
     data._username = "test@example.com"
     data.unique_id = "Telenet Telemeter test@example.com"
-    data.name = "Telenet Telemeter test@example.com"
+    data.name = "Telenet Telemeter"
     # update() is a no-op coroutine
     async def noop_update():
         pass
@@ -188,8 +190,14 @@ class TestTelenetSessionInbox(unittest.TestCase):
 
 try:
     import custom_components.telenet_telemeter.sensor as _sensor_mod
+    import custom_components.telenet_telemeter.switch as _switch_mod
     SensorAnnouncements = _sensor_mod.SensorAnnouncements
+    SensorPeak = _sensor_mod.SensorPeak
     SensorInternet = _sensor_mod.SensorInternet
+    ComponentMobileShared = _sensor_mod.ComponentMobileShared
+    SensorMobile = _sensor_mod.SensorMobile
+    SensorMobileAttribute = _sensor_mod.SensorMobileAttribute
+    WifiSwitch = _switch_mod.WifiSwitch
     _SENSOR_AVAILABLE = True
 except Exception:
     _SENSOR_AVAILABLE = False
@@ -301,6 +309,64 @@ class TestSensorAnnouncements(unittest.TestCase):
         data = _make_component_data()
         sensor = SensorAnnouncements(data, None)
         self.assertEqual(sensor.icon, "mdi:bell-outline")
+
+
+@unittest.skipUnless(_SENSOR_AVAILABLE, "sensor module could not be imported without HA")
+class TestEntityNames(unittest.TestCase):
+
+    def _make_telemeter_data(self):
+        return _make_component_data(
+            telemeter={
+                "productIdentifier": "W12345678",
+                "productLabel": "All-Internet",
+                "wifidetails": {
+                    "internetProductIdentifier": "W12345678",
+                    "wifiEnabled": True,
+                },
+            }
+        )
+
+    def test_internet_name_uses_old_short_shape(self):
+        sensor = SensorInternet(self._make_telemeter_data(), None)
+        self.assertTrue(sensor._attr_has_entity_name)
+        self.assertEqual(sensor.name, "internet W12345678")
+        self.assertEqual(sensor.suggested_object_id, "internet W12345678")
+        self.assertEqual(sensor.device_info["name"], "Telenet Telemeter")
+        self.assertNotIn("test@example.com", sensor.name)
+        self.assertNotIn("All-Internet", sensor.name)
+
+    def test_peak_name_uses_old_short_shape(self):
+        sensor = SensorPeak(self._make_telemeter_data(), None)
+        self.assertEqual(sensor.name, "peak W12345678")
+        self.assertEqual(sensor.suggested_object_id, "peak W12345678")
+
+    def test_mobile_names_use_identifier_without_label_or_username(self):
+        product = {"identifier": "M12345678", "label": "Mobile Plan / Extra"}
+        sensor = SensorMobile(_make_component_data(), product, None)
+        attr = SensorMobileAttribute(_make_component_data(), product, None, "period_days_left", "days left", "days", "mdi:calendar")
+        self.assertEqual(sensor.name, "mobile M12345678")
+        self.assertEqual(sensor.suggested_object_id, "mobile M12345678")
+        self.assertEqual(attr.name, "mobile M12345678 days left")
+        self.assertEqual(attr.suggested_object_id, "mobile M12345678 days left")
+        self.assertNotIn("test@example.com", sensor.name)
+        self.assertNotIn("Mobile Plan", sensor.name)
+
+    def test_shared_mobile_and_announcements_names_are_short(self):
+        shared = ComponentMobileShared(_make_component_data(), 0, None)
+        announcements = SensorAnnouncements(_make_component_data(), None)
+        self.assertEqual(shared.name, "mobile shared 0")
+        self.assertEqual(shared.suggested_object_id, "mobile shared 0")
+        self.assertEqual(announcements.name, "announcements")
+        self.assertEqual(announcements.suggested_object_id, "announcements")
+
+    def test_wifi_switch_name_uses_identifier_without_account_prefix(self):
+        data = self._make_telemeter_data()
+        switch = WifiSwitch(data, SimpleNamespace(_hass=None))
+        switch._update_from_data()
+        self.assertTrue(switch._attr_has_entity_name)
+        self.assertEqual(switch.name, "Wifi W12345678")
+        self.assertEqual(switch.suggested_object_id, "Wifi W12345678")
+        self.assertEqual(switch.device_info["name"], "Telenet Telemeter")
 
 
 # ---------------------------------------------------------------------------

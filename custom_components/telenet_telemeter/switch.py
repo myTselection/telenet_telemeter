@@ -12,6 +12,15 @@ _LOGGER = logging.getLogger(__name__)
 
 PARALLEL_UPDATES = 1
 
+
+def _entity_name(*parts) -> str:
+    return " ".join(str(part).strip() for part in parts if part is not None and str(part).strip())
+
+
+def _suggested_object_id(*parts) -> str:
+    return _entity_name(*parts)
+
+
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Old way."""
 
@@ -118,7 +127,7 @@ class ComponentSwitch():
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name("Wifi", self._identifier)
     
     async def turn_on_wifi(self):
         await self.handle_switch_wireless(True)
@@ -145,7 +154,11 @@ class WifiSwitch(TelenetCoordinatorEntity, SwitchEntity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name("Wifi", self._identifier)
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id("Wifi", self._identifier)
     
     @property
     def icon(self) -> str:

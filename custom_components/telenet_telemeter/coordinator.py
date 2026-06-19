@@ -353,11 +353,13 @@ class ComponentData:
     @property
     def name(self) -> str:
         """Return the name of the sensor."""
-        return self.unique_id
+        return NAME
 
 
 class TelenetCoordinatorEntity(CoordinatorEntity):
     """Base entity that updates its local fields from ComponentData."""
+
+    _attr_has_entity_name = True
 
     def __init__(self, data, hass):
         super().__init__(data.coordinator)
