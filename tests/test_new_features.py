@@ -31,11 +31,21 @@ def _make_mock_module(name):
     sys.modules[name] = m
     return m
 
+try:
+    import ratelimit  # noqa: F401
+except ImportError:
+    _make_module(
+        "ratelimit",
+        limits=lambda *args, **kwargs: (lambda f: f),
+        sleep_and_retry=lambda f: f,
+    )
+
 # Stub every homeassistant sub-module that the package imports.
 for _mod_name in [
     "homeassistant", "homeassistant.config_entries", "homeassistant.core",
     "homeassistant.helpers", "homeassistant.helpers.aiohttp_client",
     "homeassistant.helpers.config_validation", "homeassistant.helpers.entity",
+    "homeassistant.helpers.update_coordinator",
     "homeassistant.helpers.typing", "homeassistant.components",
     "homeassistant.components.sensor", "homeassistant.components.binary_sensor",
     "homeassistant.const", "homeassistant.util",
@@ -50,6 +60,24 @@ sys.modules["homeassistant.helpers.config_validation"].string = str
 sys.modules["homeassistant.helpers.config_validation"].boolean = bool
 sys.modules["homeassistant.helpers.aiohttp_client"].async_get_clientsession = lambda h: None
 sys.modules["homeassistant.helpers.entity"].Entity = object
+class _CoordinatorEntity:
+    def __init__(self, coordinator=None):
+        self.coordinator = coordinator
+    def async_write_ha_state(self):
+        pass
+class _DataUpdateCoordinator:
+    def __init__(self, *args, **kwargs):
+        self.update_method = kwargs.get("update_method")
+        self.data = None
+    async def async_config_entry_first_refresh(self):
+        if self.update_method:
+            self.data = await self.update_method()
+    async def async_request_refresh(self):
+        if self.update_method:
+            self.data = await self.update_method()
+sys.modules["homeassistant.helpers.update_coordinator"].CoordinatorEntity = _CoordinatorEntity
+sys.modules["homeassistant.helpers.update_coordinator"].DataUpdateCoordinator = _DataUpdateCoordinator
+sys.modules["homeassistant.helpers.update_coordinator"].UpdateFailed = Exception
 sys.modules["homeassistant.components.binary_sensor"].BinarySensorEntity = object
 sys.modules["homeassistant.components.binary_sensor"].DEVICE_CLASSES = []
 sys.modules["homeassistant.util"].Throttle = lambda d: (lambda f: f)
@@ -171,7 +199,7 @@ except Exception:
 class TestSensorAnnouncements(unittest.TestCase):
 
     def _run(self, coro):
-        return asyncio.get_event_loop().run_until_complete(coro)
+        return asyncio.run(coro)
 
     def test_state_is_none_when_inbox_unavailable(self):
         data = _make_component_data(inbox=None)

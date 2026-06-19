@@ -1,18 +1,15 @@
 """Support for Wifi switches"""
 import logging
-from datetime import timedelta
 
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.const import CONF_USERNAME
-from homeassistant.util import Throttle
 
 from . import DOMAIN, NAME
-from .utils import TelenetSession, check_settings
+from .coordinator import TelenetCoordinatorEntity, get_desired_internet_product
+from .utils import TelenetSession
 from .const import PROVIDER_TELENET
 
 _LOGGER = logging.getLogger(__name__)
 
-MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=240)
 PARALLEL_UPDATES = 1
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
@@ -21,17 +18,19 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     config = config_entry.data
-    
-    switches = []
+    data = hass.data.get(DOMAIN, {}).get(config_entry.entry_id, {}).get("internet")
+    if data is None:
+        _LOGGER.debug("No internet coordinator available, skipping wifi switch")
+        return
 
-    data = ComponentSwitch(hass, config)
-    
-    await data.force_update()
-    assert data._identifier is not None
-    wifiSwitch = WifiSwitch(data)
-    switches.append(wifiSwitch)
+    controller = ComponentSwitch(hass, config, data)
+    wifiSwitch = WifiSwitch(data, controller)
+    wifiSwitch._update_from_data()
+    if wifiSwitch._identifier is None:
+        _LOGGER.debug("No wifi identifier available, skipping wifi switch")
+        return
 
-    async_add_entities(switches)
+    async_add_entities([wifiSwitch])
 
 async def async_remove_entry(hass, config_entry):
     _LOGGER.info("async_remove_entry " + NAME)
@@ -42,25 +41,29 @@ async def async_remove_entry(hass, config_entry):
         pass
 
 
-def get_desired_internet_product(products, desired_product_type):
-    bundle_product = next((product for product in products if product.get('productType').lower() == desired_product_type), None)
-    _LOGGER.debug(f'desired_product: {bundle_product}, {desired_product_type}')
-    
-    if not bundle_product:
-        return next((product for product in products if product.get('productType').lower() == 'internet'), products[0])
-    
-    return bundle_product      
-
 class ComponentSwitch():
-    def __init__(self, hass, config):
+    def __init__(self, hass, config, data=None):
         self._hass = hass
         self._username = config.get('username')
         self._password = config.get('password')
         self._provider = config.get('provider', PROVIDER_TELENET)
+        self._data = data
         self._wifiState = None
         self._session = TelenetSession(provider=self._provider)
-        self._update_required = True
-        self._identifier = None
+        self._identifier = self._cached_internet_identifier()
+
+    def _cached_wifi_details(self):
+        if not self._data or not self._data._telemeter:
+            return {}
+        return self._data._telemeter.get('wifidetails') or {}
+
+    def _cached_internet_identifier(self):
+        details = self._cached_wifi_details()
+        if details.get('internetProductIdentifier'):
+            return details.get('internetProductIdentifier')
+        if self._data and self._data._telemeter:
+            return self._data._telemeter.get('productIdentifier')
+        return None
 
 
     async def handle_switch_wireless(self, enableWifi):
@@ -68,14 +71,17 @@ class ComponentSwitch():
         v2 = await self._hass.async_add_executor_job(lambda: self._session.apiVersion2())
         if not v2:
             return
-        
-        internetProductDetails = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("INTERNET"))
-        bundle = get_desired_internet_product(internetProductDetails, "internet")
-        internetProductIdentifier = bundle.get('identifier')
-        self._identifier = internetProductIdentifier
 
-        modemDetails = await self._hass.async_add_executor_job(lambda: self._session.modemdetails(internetProductIdentifier))
-        modemMac = modemDetails.get('mac')
+        wifiDetails = self._cached_wifi_details()
+        internetProductIdentifier = wifiDetails.get('internetProductIdentifier')
+        modemMac = wifiDetails.get('modemMac')
+        if not internetProductIdentifier or not modemMac:
+            internetProductDetails = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("INTERNET"))
+            bundle = get_desired_internet_product(internetProductDetails, "internet")
+            internetProductIdentifier = bundle.get('identifier')
+            modemDetails = await self._hass.async_add_executor_job(lambda: self._session.modemdetails(internetProductIdentifier))
+            modemMac = modemDetails.get('mac')
+        self._identifier = internetProductIdentifier
 
         productServiceDetails = await self._hass.async_add_executor_job(lambda: self._session.productService(internetProductIdentifier, "INTERNET"))
         customerLocationId = productServiceDetails.get('locationId')
@@ -98,10 +104,12 @@ class ComponentSwitch():
         _LOGGER.debug(f"wifi change required: wifiEnabled: {wifiEnabled}, enableWifi: {enableWifi}")
         await self._hass.async_add_executor_job(lambda: self._session.switchWifi(enableWifi, internetProductIdentifier, modemMac, customerLocationId))
         _LOGGER.debug(f"{NAME} handle_switch_wifi switch executed, old state: wifiEnabled: {wifiEnabled}, new state: enableWifi: {enableWifi}")
-        
-        wifiDetails = await self._hass.async_add_executor_job(lambda: self._session.wifidetails(internetProductIdentifier, modemMac))
+
         self._wifiState = enableWifi
-        self._update_required = True
+        if self._data and self._data._telemeter:
+            cached_details = self._data._telemeter.setdefault('wifidetails', {})
+            cached_details['wifiEnabled'] = enableWifi
+            await self._data.coordinator.async_request_refresh()
         return
     
     @property
@@ -112,48 +120,28 @@ class ComponentSwitch():
     def name(self) -> str:
         return self.unique_id
     
-    async def force_update(self):
-        await self._hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
-        v2 = await self._hass.async_add_executor_job(lambda: self._session.apiVersion2())
-        if not v2:
-            return
-        
-        internetProductDetails = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("INTERNET"))
-        bundle = get_desired_internet_product(internetProductDetails, "internet")
-        internetProductIdentifier = bundle.get('identifier')
-        self._identifier = internetProductIdentifier
-
-        modemDetails = await self._hass.async_add_executor_job(lambda: self._session.modemdetails(internetProductIdentifier))
-        modemMac = modemDetails.get('mac')
-
-        productServiceDetails = await self._hass.async_add_executor_job(lambda: self._session.productService(internetProductIdentifier, "INTERNET"))
-        
-        wifiStatus = await self._hass.async_add_executor_job(lambda: self._session.wifiStatus(internetProductIdentifier, modemMac))
-        _LOGGER.debug(f"wifiStatus switch handle: {wifiStatus}")
-        wifiEnabled = wifiStatus.get('cos') == 'WSO_SHARING'
-        self._wifiState = wifiEnabled
-        self._update_required = False
-        return                
-    
-    @Throttle(MIN_TIME_BETWEEN_UPDATES)
-    async def _update(self):
-        await self.force_update()
-
-    async def update(self):
-        if self._update_required:
-            await self.force_update()
-        else:
-            await self._update()
-
     async def turn_on_wifi(self):
         await self.handle_switch_wireless(True)
     
     async def turn_off_wifi(self):
         await self.handle_switch_wireless(False)
 
-class WifiSwitch(SwitchEntity):
-    def __init__(self, data):
+class WifiSwitch(TelenetCoordinatorEntity, SwitchEntity):
+    def __init__(self, data, controller):
+        super().__init__(data, controller._hass)
         self._data = data
+        self._controller = controller
+        self._identifier = None
+        self._wifiState = None
+
+    def _update_from_data(self):
+        telemeter = self._data._telemeter or {}
+        wifiDetails = telemeter.get('wifidetails') or {}
+        self._identifier = (
+            wifiDetails.get('internetProductIdentifier')
+            or telemeter.get('productIdentifier')
+        )
+        self._wifiState = wifiDetails.get('wifiEnabled')
 
     @property
     def name(self) -> str:
@@ -166,7 +154,7 @@ class WifiSwitch(SwitchEntity):
     @property
     def unique_id(self) -> str:
         return (
-            f"{NAME} Wifi {self._data._identifier}"
+            f"{NAME} Wifi {self._identifier}"
         )
     
     @property
@@ -177,15 +165,16 @@ class WifiSwitch(SwitchEntity):
             "manufacturer": NAME,
         }
 
-    async def async_update(self):
-        await self._data.update()
-    
     @property
     def is_on(self):
-        return self._data._wifiState
+        return self._wifiState
     
     async def async_turn_on(self, **kwargs):
-        await self._data.turn_on_wifi()
+        await self._controller.turn_on_wifi()
+        self._update_from_data()
+        self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
-        await self._data.turn_off_wifi()
+        await self._controller.turn_off_wifi()
+        self._update_from_data()
+        self.async_write_ha_state()
