@@ -7,15 +7,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.core import HomeAssistant
 from homeassistant.const import Platform
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from .coordinator import ComponentData
 from .utils import TelenetSession
 from .const import PROVIDER_TELENET, PROVIDER_NAMES
-from homeassistant.const import (
-    CONF_NAME,
-    CONF_PASSWORD,
-    CONF_RESOURCES,
-    CONF_SCAN_INTERVAL,
-    CONF_USERNAME
-)
 
 manifestfile = Path(__file__).parent / 'manifest.json'
 with open(manifestfile, 'r') as json_file:
@@ -71,17 +66,63 @@ async def update_listener(hass: HomeAssistant, config_entry: ConfigEntry):
 
 async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry):
     unload_ok = await hass.config_entries.async_unload_platforms(config_entry, PLATFORMS)
+    if unload_ok:
+        hass.data.get(DOMAIN, {}).pop(config_entry.entry_id, None)
     return unload_ok
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Set up component as config entry."""
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][config_entry.entry_id] = await _async_setup_coordinators(
+        hass,
+        config_entry,
+    )
     await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
     _LOGGER.info(f"{DOMAIN} register_services")
     internet = config_entry.data.get("internet")
     if internet: 
         register_services(hass, config_entry)
     return True
+
+
+async def _async_setup_coordinators(hass: HomeAssistant, config_entry: ConfigEntry):
+    config = config_entry.data
+    username = config.get("username")
+    password = config.get("password")
+    internet = config.get("internet")
+    mobile = config.get("mobile")
+    provider = config.get("provider", PROVIDER_TELENET)
+    client = async_get_clientsession(hass)
+    data_by_type = {}
+
+    if internet:
+        internet_data = ComponentData(
+            username,
+            password,
+            True,
+            False,
+            client,
+            hass,
+            provider,
+        )
+        await internet_data.async_config_entry_first_refresh()
+        data_by_type["internet"] = internet_data
+
+    if mobile:
+        mobile_data = ComponentData(
+            username,
+            password,
+            False,
+            True,
+            client,
+            hass,
+            provider,
+        )
+        await mobile_data.async_config_entry_first_refresh()
+        data_by_type["mobile"] = mobile_data
+
+    return data_by_type
 
 
 async def async_remove_entry(hass, config_entry):

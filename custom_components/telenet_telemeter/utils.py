@@ -5,7 +5,6 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import List
 import requests
-from pydantic import BaseModel
 from enum import Enum
 import re
 import urllib.parse

@@ -4,12 +4,8 @@ from collections import OrderedDict
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.const import (
-    CONF_NAME,
     CONF_PASSWORD,
-    CONF_RESOURCES,
-    CONF_SCAN_INTERVAL,
     CONF_USERNAME
 )
 
@@ -60,8 +56,6 @@ def create_schema(entry, option=False):
 
 class Mixin:
     async def test_setup(self, user_input):
-        client = async_get_clientsession(self.hass)
-
         try:
             check_settings(user_input, self.hass)
         except ValueError:

@@ -1,50 +1,27 @@
 import logging
-import asyncio
-from datetime import date, datetime, timedelta, time
+from datetime import datetime, timedelta, time
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from homeassistant.components.sensor import PLATFORM_SCHEMA
-from homeassistant.components.binary_sensor import DEVICE_CLASSES, BinarySensorEntity
+from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.const import ATTR_ATTRIBUTION
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import Entity
-from homeassistant.util import Throttle
 
 from . import DOMAIN, NAME
-from .utils import *
+from .coordinator import (
+    ComponentData,
+    TelenetCoordinatorEntity,
+    _format_last_update,
+)
+from .utils import check_settings
 from .const import PROVIDER_TELENET
 
 _LOGGER = logging.getLogger(__name__)
 _TELENET_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.0%z"
 _TELENET_DATETIME_FORMAT_V2 = "%Y-%m-%d"
 _TELENET_DATETIME_FORMAT_MOBILE = "%Y-%m-%dT%H:%M:%S%z"
-_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-
-
-def _format_last_update(dt_str):
-    """Format ISO datetime string to '08:00 on 27 May'."""
-    if not dt_str:
-        return None
-    try:
-        import re
-        m = re.match(r'\d{4}-(\d{2})-(\d{2})T(\d{2}):(\d{2})', str(dt_str))
-        if m:
-            month, day, hour, minute = m.groups()
-            return f"{hour}:{minute} on {int(day)} {_MONTHS[int(month)-1]}"
-    except Exception:
-        pass
-    return str(dt_str)
-
-
-def _parse_eu_float(s):
-    """Parse European decimal string '34,58' or '7.79' to float, or None."""
-    if s is None:
-        return None
-    try:
-        return float(str(s).replace(',', '.'))
-    except (ValueError, TypeError):
-        return None
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -55,53 +32,74 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     }
 )
 
-MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=240)
 PARALLEL_UPDATES = 1
 
-async def dry_setup(hass, config_entry, async_add_devices):
+
+def _entity_name(*parts) -> str:
+    return " ".join(str(part).strip() for part in parts if part is not None and str(part).strip())
+
+
+def _suggested_object_id(*parts) -> str:
+    return _entity_name(*parts)
+
+
+def _mobile_subscription_identifier(product_subscription):
+    return product_subscription.get('identifier') or product_subscription.get('msisdn')
+
+
+def _internet_identifier(data):
+    return (data._telemeter or {}).get('productIdentifier')
+
+
+async def dry_setup(hass, config_entry, async_add_devices, data_by_type=None):
     config = config_entry
     username = config.get("username")
     password = config.get("password")
     internet = config.get("internet")
     mobile = config.get("mobile")
     provider = config.get("provider", PROVIDER_TELENET)
+    data_by_type = data_by_type or {}
 
     check_settings(config, hass)
     sensors = []
     data_internet = None
 
     if internet:
-        data_internet = ComponentData(
-            username,
-            password,
-            internet,
-            False,
-            async_get_clientsession(hass),
-            hass,
-            provider
-        )
-        await data_internet._forced_update()
+        data_internet = data_by_type.get("internet")
+        if data_internet is None:
+            data_internet = ComponentData(
+                username,
+                password,
+                internet,
+                False,
+                async_get_clientsession(hass),
+                hass,
+                provider
+            )
+            await data_internet.async_config_entry_first_refresh()
         assert data_internet._telemeter is not None
         sensor = SensorInternet(data_internet, hass)
-        await sensor.async_update()
+        sensor._update_from_data()
         sensors.append(sensor)
         binarysensor = SensorPeak(data_internet, hass)
-        await binarysensor.async_update()
+        binarysensor._update_from_data()
         sensors.append(binarysensor)
         announcements = SensorAnnouncements(data_internet, hass)
-        await announcements.async_update()
+        announcements._update_from_data()
         sensors.append(announcements)
     if mobile:
-        data_mobile = ComponentData(
-            username,
-            password,
-            False,
-            mobile,
-            async_get_clientsession(hass),
-            hass,
-            provider
-        )
-        await data_mobile._forced_update()
+        data_mobile = data_by_type.get("mobile")
+        if data_mobile is None:
+            data_mobile = ComponentData(
+                username,
+                password,
+                False,
+                mobile,
+                async_get_clientsession(hass),
+                hass,
+                provider
+            )
+            await data_mobile.async_config_entry_first_refresh()
         assert data_mobile._mobilemeter is not None
         if not data_mobile._v2:
             mobileusage = data_mobile._mobilemeter.get('mobileusage')
@@ -110,12 +108,14 @@ async def dry_setup(hass, config_entry, async_add_devices):
                 if product.get('sharedusage'):
                     _LOGGER.info("shared mobileusage element " +  NAME)
                     sensor = ComponentMobileShared(data_mobile, idxproduct, hass)
+                    sensor._update_from_data()
                     sensors.append(sensor)
                 if product.get('unassigned'):
                     _LOGGER.info("unassigned mobileusage element " +  NAME)
                     for idxunsubs, subscription in enumerate(product.get('unassigned').get('mobilesubscriptions')):
                         _LOGGER.debug("enumarate unassigned subsc elements idx:" + str(idxunsubs) + ", subscription: "+ str(subscription) + " " +  NAME)
                         sensor = SensorMobileUnassigned(data_mobile, idxproduct, idxunsubs, hass)
+                        sensor._update_from_data()
                         sensors.append(sensor)
                 if product.get('profiles'):
                     _LOGGER.info("assigned mobileusage element " +  NAME)
@@ -124,12 +124,13 @@ async def dry_setup(hass, config_entry, async_add_devices):
                         for idxunsubs, subscription in enumerate(product.get('profiles')[idxunprofile].get('mobilesubscriptions')):
                             _LOGGER.debug("enumarate assigned subsc elements idx:" + str(idxunsubs) + ", subscription: "+ str(subscription) + " " +  NAME)
                             sensor = SensorMobileAssigned(data_mobile, idxproduct, idxunprofile, idxunsubs, hass)
+                            sensor._update_from_data()
                             sensors.append(sensor)
         else:
             for productSubscription in data_mobile._mobilemeter:
                 _LOGGER.debug("Mobile productSubscription " +  productSubscription.get("identifier") + " [" +  productSubscription.get("label") + "]")
                 sensor = SensorMobile(data_mobile, productSubscription, hass)
-                await sensor.async_update()
+                sensor._update_from_data()
                 sensors.append(sensor)
                 # Sub-sensors: each exposes one metric as a separate HA entity
                 sub_defs = [
@@ -144,7 +145,7 @@ async def dry_setup(hass, config_entry, async_add_devices):
                     sensors.append(sub)
         if not data_internet:
             announcements = SensorAnnouncements(data_mobile, hass)
-            await announcements.async_update()
+            announcements._update_from_data()
             sensors.append(announcements)
     async_add_devices(sensors)
 
@@ -162,7 +163,8 @@ async def async_setup_entry(hass, config_entry, async_add_devices):
     """Setup sensor platform for the ui"""
     _LOGGER.info("async_setup_entry " + NAME)
     config = config_entry.data
-    await dry_setup(hass, config, async_add_devices)
+    data_by_type = hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
+    await dry_setup(hass, config, async_add_devices, data_by_type)
     return True
 
 
@@ -175,167 +177,9 @@ async def async_remove_entry(hass, config_entry):
         pass
 
 
-def get_desired_internet_product(products, desired_product_type):
-    _LOGGER.debug(f'products: {products}, {desired_product_type}')
-    bundle_product = next((product for product in products if product.get('productType','').lower() == desired_product_type), None)
-    if desired_product_type == 'bundle' and bundle_product and not bundle_product.get('products'):
-        bundle_product = None
-    _LOGGER.debug(f'desired_product: {bundle_product}, {desired_product_type}')
-    
-    if not bundle_product:
-        return next((product for product in products if product.get('productType','').lower() == 'internet'), products[0])
-    
-    _LOGGER.debug(f'return desired_product: {bundle_product}, {desired_product_type}')
-    return bundle_product
-
-class ComponentData:
-    def __init__(self, username, password, internet, mobile, client, hass, provider=PROVIDER_TELENET):
-        self._username = username
-        self._password = password
-        self._internet = internet
-        self._mobile = mobile
-        self._client = client
-        self._provider = provider
-        self._session = TelenetSession(provider=provider)
-        self._telemeter = None
-        self._mobilemeter = None
-        self._producturl = None
-        self._product_details = None
-        self._inbox_messages = None
-        self._v2 = None
-        self._mobile_parsed = {}
-        self._hass = hass
-        
-    async def _forced_update(self):
-        _LOGGER.info("Fetching init stuff for " + NAME)
-        if not(self._session):
-            self._session = TelenetSession(provider=self._provider)
-
-        if self._session:
-            await self._hass.async_add_executor_job(lambda: self._session.login(self._username, self._password))
-            _LOGGER.debug("ComponentData init login completed")
-            if self._v2 is None:
-                self._v2 = await self._hass.async_add_executor_job(lambda: self._session.apiVersion2())
-                _LOGGER.info(f"Telenet API Version 2? : {self._v2}")
-
-            if self._internet:
-                if not self._v2:
-                    self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.telemeter())
-                    self._telemeter['productIdentifier'] = self._telemeter.get('internetusage')[0].get('businessidentifier')
-                else:
-                    planInfo = await self._hass.async_add_executor_job(lambda: self._session.planInfo())
-                    productIdentifier = ""
-                    _LOGGER.debug(f"planInfo: {planInfo}")
-                    desired_product = get_desired_internet_product(planInfo, 'bundle')
-                    productIdentifier = desired_product.get('identifier')
-                    _LOGGER.debug(f"productIdentifier internet: {productIdentifier}")
-                    if desired_product.get('productType','').lower() == "bundle":
-                        product = next((product for product in desired_product.get('products') if product.get('productType','').lower() == 'internet'), desired_product.get('identifier'))
-                        productIdentifier = product.get('identifier')
-                        _LOGGER.debug(f"productIdentifier bundle: {productIdentifier}")
-                    else:
-                        productIdentifier = desired_product.get('identifier')
-                        _LOGGER.debug(f"productIdentifier internet: {productIdentifier}")
-                    billcycles = await self._hass.async_add_executor_job(lambda: self._session.billCycles("internet", productIdentifier))
-                    startDate = billcycles.get('billCycles')[0].get("startDate")
-                    endDate = billcycles.get('billCycles')[0].get("endDate")
-                    self._telemeter = await self._hass.async_add_executor_job(lambda: self._session.productUsage("internet", productIdentifier, startDate,endDate))
-                    self._telemeter['startDate'] = startDate
-                    self._telemeter['endDate'] = endDate
-                    self._telemeter['productIdentifier'] = productIdentifier
-                    self._telemeter['productLabel'] = desired_product.get('label', '').split('/')[0].strip()
-                    dailyUsage = await self._hass.async_add_executor_job(lambda: self._session.productDailyUsage("internet", productIdentifier, startDate,endDate))
-                    self._telemeter['internetUsage'] = dailyUsage.get('internetUsage')
-
-                    internetProductIdentifier = None
-                    modemMac = None
-                    wifiEnabled = None
-                    wifreeEnabled = None
-                    try:
-                        internetProductDetails = await self._hass.async_add_executor_job(lambda: self._session.productSubscriptions("INTERNET"))
-                        _LOGGER.debug(f"internetProductDetails: {internetProductDetails}")
-                        
-                        desired_product = get_desired_internet_product(internetProductDetails, 'internet')
-                        internetProductIdentifier = desired_product.get('identifier')
-                        _LOGGER.debug(f"internetProductIdentifier: {internetProductIdentifier}")
-
-                        modemDetails = await self._hass.async_add_executor_job(lambda: self._session.modemdetails(internetProductIdentifier))
-                        modemMac = modemDetails.get('mac')
-
-                        wifiDetails = await self._hass.async_add_executor_job(lambda: self._session.wifidetails(internetProductIdentifier, modemMac))
-                        wifiEnabled = wifiDetails.get('wirelessEnabled')
-                        wifreeEnabled = wifiDetails.get('homeSpotEnabled')
-                    except:
-                        _LOGGER.error('Failure in fetching wifi details')
-                    self._telemeter['wifidetails'] = {'internetProductIdentifier': internetProductIdentifier, 'modemMac': modemMac, 'wifiEnabled': wifiEnabled, 'wifreeEnabled': wifreeEnabled}
-
-                if not self._v2:
-                    self._producturl = self._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('specurl') 
-                    _LOGGER.debug(f"ComponentData init telemeter data: {self._telemeter}")
-                else:
-                    self._producturl = self._telemeter.get('internet').get('specurl') 
-                _LOGGER.debug(f"ComponentData init telemeter data: {self._telemeter}")
-                assert self._producturl is not None
-                self._product_details = await self._hass.async_add_executor_job(lambda: self._session.telemeter_product_details(self._producturl))
-                assert self._product_details is not None
-                _LOGGER.debug(f"ComponentData init telemeter productdetails: {self._product_details}")
-            try:
-                self._inbox_messages = await self._hass.async_add_executor_job(lambda: self._session.inboxMessages())
-                _LOGGER.debug(f"ComponentData init inbox messages: {self._inbox_messages}")
-            except Exception as e:
-                _LOGGER.warning(f"Failed to fetch inbox messages: {e}")
-                self._inbox_messages = None
-
-            if self._mobile:
-                if not self._v2:
-                    self._mobilemeter = await self._hass.async_add_executor_job(lambda: self._session.mobile())
-                else:
-                    lines = await self._hass.async_add_executor_job(lambda: self._session.mobileLines())
-                    enriched = []
-                    for line in lines:
-                        msisdn = line.get('msisdn')
-                        usage = await self._hass.async_add_executor_job(lambda m=msisdn: self._session.mobileLineUsage(m))
-                        plan_name = ''
-                        if usage:
-                            plan_name = (
-                                (usage.get('usage') or {}).get('subscription', {}).get('planName', {}).get('nl') or
-                                (usage.get('usage') or {}).get('subscription', {}).get('planName', {}).get('en') or ''
-                            )
-                        enriched.append({
-                            'identifier': msisdn,
-                            'msisdn': msisdn,
-                            'label': plan_name,
-                            'isDataOnly': line.get('isDataOnly', False),
-                            'status': line.get('status'),
-                        })
-                    self._mobilemeter = enriched
-                assert self._mobilemeter is not None
-                _LOGGER.debug(f"ComponentData init mobilemeter data: {self._mobilemeter}")
-
-
-    @Throttle(MIN_TIME_BETWEEN_UPDATES)
-    async def _update(self):
-        await self._forced_update()
-
-    async def update(self):
-        await self._update()
-    
-    def clear_session(self):
-        self._session : None
-
-    @property
-    def unique_id(self):
-        return f"{NAME} {self._username}"
-    @property
-    def name(self) -> str:
-        """Return the name of the sensor."""
-        return self.unique_id
-
-
-class SensorInternet(Entity):
+class SensorInternet(TelenetCoordinatorEntity, Entity):
     def __init__(self, data, hass):
-        self._data = data
-        self._hass = hass
+        super().__init__(data, hass)
         self._last_update = None
         self._used_percentage = None
         self._period_start_date = None
@@ -368,8 +212,7 @@ class SensorInternet(Entity):
         """Return the state of the sensor."""
         return self._usage_gb
 
-    async def async_update(self):
-        await self._data.update()
+    def _update_from_data(self):
         if not self._data._v2:
             self._last_update =  self._data._telemeter.get('internetusage')[0].get('lastupdated')
             self._product = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype') 
@@ -518,7 +361,11 @@ class SensorInternet(Entity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name("internet", _internet_identifier(self._data))
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id("internet", _internet_identifier(self._data))
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -571,13 +418,12 @@ class SensorInternet(Entity):
 
     @property
     def friendly_name(self) -> str:
-        return self.unique_id
+        return self.name
 
 
-class SensorPeak(BinarySensorEntity):
+class SensorPeak(TelenetCoordinatorEntity, BinarySensorEntity):
     def __init__(self, data, hass):
-        self._data = data
-        self._hass = hass
+        super().__init__(data, hass)
         self._last_update = None
         self._product = None
         self._peak = None
@@ -597,8 +443,7 @@ class SensorPeak(BinarySensorEntity):
     def is_on(self):
         return self._peak
 
-    async def async_update(self):
-        await self._data.update()
+    def _update_from_data(self):
         if not self._data._v2:
             self._last_update =  self._data._telemeter.get('internetusage')[0].get('lastupdated')
             self._product = self._data._telemeter.get('internetusage')[0].get('availableperiods')[0].get('usages')[0].get('producttype')  
@@ -725,7 +570,11 @@ class SensorPeak(BinarySensorEntity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name("peak", _internet_identifier(self._data))
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id("peak", _internet_identifier(self._data))
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -745,7 +594,7 @@ class SensorPeak(BinarySensorEntity):
 
     @property
     def friendly_name(self) -> str:
-        return self.unique_id
+        return self.name
 
     @property
     def device_info(self) -> dict:
@@ -756,11 +605,10 @@ class SensorPeak(BinarySensorEntity):
         }
 
 
-class ComponentMobileShared(Entity):
+class ComponentMobileShared(TelenetCoordinatorEntity, Entity):
     def __init__(self, data, productid, hass):
-        self._data = data
+        super().__init__(data, hass)
         self._productid = productid
-        self._hass = hass
         self._last_update = None
         self._total_volume_data = None
         self._total_volume_text = None
@@ -780,8 +628,7 @@ class ComponentMobileShared(Entity):
     def state(self):
         return self._used_percentage_data
 
-    async def async_update(self):
-        await self._data.update()
+    def _update_from_data(self):
         _LOGGER.debug(f"mobilemeter ComponentMobileShared productid: {self._productid}")
         
         if not self._data._v2:
@@ -831,7 +678,11 @@ class ComponentMobileShared(Entity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name("mobile shared", self._productid)
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id("mobile shared", self._productid)
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -871,14 +722,13 @@ class ComponentMobileShared(Entity):
 
     @property
     def friendly_name(self) -> str:
-        return self.unique_id
+        return self.name
         
-class SensorMobileUnassigned(Entity):
+class SensorMobileUnassigned(TelenetCoordinatorEntity, Entity):
     def __init__(self, data, productid, subsid, hass):
-        self._data = data
+        super().__init__(data, hass)
         self._productid = productid
         self._subsid = subsid
-        self._hass = hass
         self._last_update = None
         self._total_volume_data = None
         self._total_volume_text = None
@@ -900,8 +750,7 @@ class SensorMobileUnassigned(Entity):
     def state(self):
         return self._used_percentage_data
 
-    async def async_update(self):
-        await self._data.update()
+    def _update_from_data(self):
         _LOGGER.debug(f"mobilemeter ComponentMobileShared subsid: {self._subsid}")
         
         mobileusage = self._data._mobilemeter.get('mobileusage')
@@ -954,7 +803,17 @@ class SensorMobileUnassigned(Entity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name(
+            "mobile",
+            self._data._mobilemeter.get('mobileusage')[self._productid].get('unassigned').get('mobilesubscriptions')[self._subsid].get('mobile')
+        )
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id(
+            "mobile",
+            self._data._mobilemeter.get('mobileusage')[self._productid].get('unassigned').get('mobilesubscriptions')[self._subsid].get('mobile')
+        )
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -997,15 +856,14 @@ class SensorMobileUnassigned(Entity):
 
     @property
     def friendly_name(self) -> str:
-        return self.unique_id
+        return self.name
         
-class SensorMobileAssigned(Entity):
+class SensorMobileAssigned(TelenetCoordinatorEntity, Entity):
     def __init__(self, data, productid, profileid, subsid, hass):
-        self._data = data
+        super().__init__(data, hass)
         self._productid = productid
         self._profileid = profileid
         self._subsid = subsid
-        self._hass = hass
         self._last_update = None
         self._total_volume_data = None
         self._total_volume_text = None
@@ -1033,8 +891,7 @@ class SensorMobileAssigned(Entity):
     def state(self):
         return self._used_percentage_data
 
-    async def async_update(self):
-        await self._data.update()
+    def _update_from_data(self):
         _LOGGER.debug(f"mobilemeter ComponentMobileShared subsid: {self._subsid}")
         
         mobileusage = self._data._mobilemeter.get('mobileusage')
@@ -1092,7 +949,17 @@ class SensorMobileAssigned(Entity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name(
+            "mobile",
+            self._data._mobilemeter.get('mobileusage')[self._productid].get('profiles')[self._profileid].get('mobilesubscriptions')[self._subsid].get('mobile')
+        )
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id(
+            "mobile",
+            self._data._mobilemeter.get('mobileusage')[self._productid].get('profiles')[self._profileid].get('mobilesubscriptions')[self._subsid].get('mobile')
+        )
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -1138,13 +1005,12 @@ class SensorMobileAssigned(Entity):
 
     @property
     def friendly_name(self) -> str:
-        return self.unique_id
+        return self.name
   
-class SensorMobile(Entity):
+class SensorMobile(TelenetCoordinatorEntity, Entity):
     def __init__(self, data, productSubscription, hass):
-        self._data = data
+        super().__init__(data, hass)
         self._productSubscription = productSubscription
-        self._hass = hass
         self._last_update = None
         self._total_volume_data = None
         self._total_volume_text = None
@@ -1203,114 +1069,49 @@ class SensorMobile(Entity):
         except (ValueError, IndexError):
             return None
 
-    async def async_update(self):
-        await self._data.update()
+    def _update_from_data(self):
         self._identifier = self._productSubscription.get('identifier') or self._productSubscription.get('msisdn')
         _LOGGER.debug(f"Mobile sensor sync: {self._identifier}")
 
-        mobileusage = await self._hass.async_add_executor_job(
-            lambda: self._data._session.mobileLineUsage(self._identifier)
-        )
-        if mobileusage is None:
-            _LOGGER.warning(f"mobileLineUsage returned None for {self._identifier}, keeping previous state")
+        parsed = self._data._mobile_line_usage.get(self._identifier)
+        if parsed is None:
+            _LOGGER.warning(f"No cached mobile usage for {self._identifier}, keeping previous state")
             return
-        _LOGGER.debug(f"mobileusage: {mobileusage}")
 
-        subscription = (mobileusage.get('usage') or {}).get('subscription', {})
-        breakdown = subscription.get('breakdown', {})
-        bars_summary = breakdown.get('barsSummary', {})
-        bars = bars_summary.get('bars', [])
-        tiles = breakdown.get('tiles', [])
-
-        # Plan metadata
-        plan_name = subscription.get('planName', {})
-        self._label = self._product = (
-            plan_name.get('nl') or plan_name.get('en') or
-            self._productSubscription.get('label', '')
-        )
-        self._number = self._identifier
-        self._active = mobileusage.get('lineStatus') or self._productSubscription.get('status')
-        self._mobileinternetonly = self._productSubscription.get('isDataOnly', False)
-
-        # Period dates
-        next_billing = subscription.get('nextBillingDate')
-        self._period_end_date = next_billing
-        if next_billing:
-            try:
-                from datetime import timezone
-                end_dt = datetime.fromisoformat(next_billing.replace('Z', '+00:00'))
-                self._period_days_left = round((end_dt - datetime.now(timezone.utc)).total_seconds() / 86400, 1)
-            except Exception:
-                self._period_days_left = None
-
-        # Last update
-        self._last_update = subscription.get('lastUpdated')
-        self._last_update_formatted = _format_last_update(self._last_update)
-
-        # Data bar (bars[] where category == "DATA")
-        data_bar = next((b for b in bars if b.get('category') == 'DATA'), None)
-        if data_bar:
-            consumed = data_bar.get('consumed', 0) or 0
-            remaining = data_bar.get('remaining', 0) or 0
-            total = data_bar.get('total', 0) or 0
-            unit = data_bar.get('unit', 'GB')
-            self._usage_gb = round(consumed, 2)
-            self._max_data_gb = round(total, 2) if total else None
-            self._data_unlimited = data_bar.get('lineType') == 'UNLIMITED'
-            self._used_percentage_data = round(data_bar.get('consumedPercentage', 0) or 0, 1)
-            self._total_volume_data = f"{consumed} {unit}"
-            self._remaining_volume_data = f"{remaining} {unit}"
-        elif bars_summary.get('totalConsumed') is not None:
-            self._usage_gb = round(bars_summary.get('totalConsumed', 0) or 0, 2)
-            self._max_data_gb = round(bars_summary.get('totalAllocated', 0) or 0, 2)
-
-        # Voice tile (tiles[] where category == "CALL")
-        self._has_voice = not self._productSubscription.get('isDataOnly', False)
-        call_tile = next((t for t in tiles if t.get('category') == 'CALL'), None)
-        if call_tile:
-            self._voice_used_minutes = round(call_tile.get('consumed', 0) or 0, 1)
-            self._voice_unlimited = call_tile.get('lineType') == 'UNLIMITED'
-            total_voice = call_tile.get('total', 0) or 0
-            self._voice_max_minutes = round(total_voice, 0) if total_voice > 0 else None
-            self._total_volume_voice = f"{self._voice_used_minutes} minutes"
-        elif self._has_voice:
-            self._voice_used_minutes = None
-
-        # SMS tile
-        sms_tile = next((t for t in tiles if t.get('category') == 'SMS'), None)
-        if sms_tile:
-            self._total_volume_text = str(sms_tile.get('consumed', 0))
-
-        self._state = self._used_percentage_data
-
-        # Out-of-bundle usage (€) — fetched from old v3 API which is the only source for this
-        try:
-            oob = await self._hass.async_add_executor_job(
-                lambda: self._data._session.mobileOutOfBundle(self._identifier)
-            )
-            if oob is not None:
-                self._oob_total_eur = oob.get('usedUnits', '0')
-                self._oob_details = {
-                    d['type']: d['value']
-                    for d in (oob.get('details') or [])
-                    if d.get('value', 0) != 0 or True  # keep all for visibility
-                }
-        except Exception as e:
-            _LOGGER.debug(f"OOB fetch failed for {self._identifier}: {e}")
-
-        # Store parsed values in shared cache for sub-sensors
-        self._data._mobile_parsed[self._identifier] = {
-            'usage_gb': self._usage_gb,
-            'used_percentage_data': self._used_percentage_data,
-            'period_days_left': self._period_days_left,
-            'max_data_gb': self._max_data_gb,
-            'data_unlimited': self._data_unlimited,
-            'has_voice': self._has_voice,
-            'voice_used_minutes': self._voice_used_minutes,
-            'voice_max_minutes': self._voice_max_minutes,
-            'voice_unlimited': self._voice_unlimited,
-            'last_update_formatted': self._last_update_formatted,
-        }
+        self._label = parsed.get('label')
+        self._last_update = parsed.get('last_update')
+        self._total_volume_data = parsed.get('total_volume_data')
+        self._total_volume_text = parsed.get('total_volume_text')
+        self._total_volume_voice = parsed.get('total_volume_voice')
+        self._remaining_volume_data = parsed.get('remaining_volume_data')
+        self._remaining_volume_text = parsed.get('remaining_volume_text')
+        self._remaining_volume_voice = parsed.get('remaining_volume_voice')
+        self._used_percentage_data = parsed.get('used_percentage_data')
+        self._used_percentage_text = parsed.get('used_percentage_text')
+        self._used_percentage_voice = parsed.get('used_percentage_voice')
+        self._state = parsed.get('state')
+        self._period_end_date = parsed.get('period_end_date')
+        self._product = parsed.get('product')
+        self._number = parsed.get('number')
+        self._active = parsed.get('active')
+        self._outofbundle = parsed.get('outofbundle')
+        self._mobileinternetonly = parsed.get('mobileinternetonly')
+        self._bundle_total_volume_data = parsed.get('bundle_total_volume_data')
+        self._bundle_used_percentage_data = parsed.get('bundle_used_percentage_data')
+        self._bundle_remaining_volume_data = parsed.get('bundle_remaining_volume_data')
+        self._bundle_total_volume_text = parsed.get('bundle_total_volume_text')
+        self._bundle_total_volume_voice = parsed.get('bundle_total_volume_voice')
+        self._usage_gb = parsed.get('usage_gb')
+        self._max_data_gb = parsed.get('max_data_gb')
+        self._data_unlimited = parsed.get('data_unlimited')
+        self._period_days_left = parsed.get('period_days_left')
+        self._has_voice = parsed.get('has_voice')
+        self._voice_used_minutes = parsed.get('voice_used_minutes')
+        self._voice_max_minutes = parsed.get('voice_max_minutes')
+        self._voice_unlimited = parsed.get('voice_unlimited')
+        self._last_update_formatted = parsed.get('last_update_formatted')
+        self._oob_total_eur = parsed.get('oob_total_eur')
+        self._oob_details = parsed.get('oob_details')
 
     async def async_will_remove_from_hass(self):
         _LOGGER.info("async_will_remove_from_hass " + NAME)
@@ -1323,12 +1124,16 @@ class SensorMobile(Entity):
     @property
     def unique_id(self) -> str:
         label = str(self._productSubscription.get('label', '')).split('/')[0].strip()
-        pid = self._productSubscription.get('identifier')
+        pid = _mobile_subscription_identifier(self._productSubscription)
         return f"Telenet mobile {label} {pid}".strip()
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name("mobile", _mobile_subscription_identifier(self._productSubscription))
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id("mobile", _mobile_subscription_identifier(self._productSubscription))
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -1388,20 +1193,19 @@ class SensorMobile(Entity):
 
     @property
     def friendly_name(self) -> str:
-        return self.unique_id
+        return self.name
 
 
-class SensorMobileAttribute(Entity):
+class SensorMobileAttribute(TelenetCoordinatorEntity, Entity):
     """Exposes one parsed field from SensorMobile as a separate HA entity.
 
-    Reads from ComponentData._mobile_parsed which is populated by SensorMobile.async_update.
+    Reads from ComponentData._mobile_parsed which is populated by the coordinator.
     No additional API calls are made.
     """
 
     def __init__(self, data, productSubscription, hass, field, name_suffix, unit, icon):
-        self._data = data
+        super().__init__(data, hass)
         self._productSubscription = productSubscription
-        self._hass = hass
         self._field = field
         self._name_suffix = name_suffix
         self._unit = unit
@@ -1409,14 +1213,11 @@ class SensorMobileAttribute(Entity):
 
     @property
     def _identifier(self):
-        return self._productSubscription.get('identifier')
+        return _mobile_subscription_identifier(self._productSubscription)
 
     @property
     def state(self):
         return (self._data._mobile_parsed.get(self._identifier) or {}).get(self._field)
-
-    async def async_update(self):
-        await self._data.update()
 
     async def async_will_remove_from_hass(self):
         self._data.clear_session()
@@ -1428,12 +1229,16 @@ class SensorMobileAttribute(Entity):
     @property
     def unique_id(self) -> str:
         label = str(self._productSubscription.get('label', '')).split('/')[0].strip()
-        pid = self._productSubscription.get('identifier')
+        pid = _mobile_subscription_identifier(self._productSubscription)
         return f"Telenet mobile {label} {pid} {self._name_suffix}".strip()
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name("mobile", _mobile_subscription_identifier(self._productSubscription), self._name_suffix)
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id("mobile", _mobile_subscription_identifier(self._productSubscription), self._name_suffix)
 
     @property
     def unit_of_measurement(self):
@@ -1449,13 +1254,12 @@ class SensorMobileAttribute(Entity):
 
     @property
     def friendly_name(self) -> str:
-        return self.unique_id
+        return self.name
 
 
-class SensorAnnouncements(Entity):
+class SensorAnnouncements(TelenetCoordinatorEntity, Entity):
     def __init__(self, data, hass):
-        self._data = data
-        self._hass = hass
+        super().__init__(data, hass)
         self._last_update = None
         self._unread_count = None
         self._messages = None
@@ -1464,8 +1268,7 @@ class SensorAnnouncements(Entity):
     def state(self):
         return self._unread_count
 
-    async def async_update(self):
-        await self._data.update()
+    def _update_from_data(self):
         self._last_update = datetime.now().isoformat()
         inbox = self._data._inbox_messages
         if inbox is None:
@@ -1504,7 +1307,11 @@ class SensorAnnouncements(Entity):
 
     @property
     def name(self) -> str:
-        return self.unique_id
+        return _entity_name("announcements")
+
+    @property
+    def suggested_object_id(self) -> str:
+        return _suggested_object_id("announcements")
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -1525,4 +1332,4 @@ class SensorAnnouncements(Entity):
 
     @property
     def friendly_name(self) -> str:
-        return self.unique_id
+        return self.name
