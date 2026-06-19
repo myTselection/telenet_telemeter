@@ -295,6 +295,7 @@ class ComponentData:
                     for line in lines:
                         msisdn = line.get('msisdn')
                         usage = await self._hass.async_add_executor_job(lambda m=msisdn: self._session.mobileLineUsage(m))
+                        oob = await self._hass.async_add_executor_job(lambda m=msisdn: self._session.mobileOutOfBundle(m))
                         plan_name = ''
                         if usage:
                             plan_name = (
@@ -307,6 +308,10 @@ class ComponentData:
                             'label': plan_name,
                             'isDataOnly': line.get('isDataOnly', False),
                             'status': line.get('status'),
+                        })
+                        self._mobile_parsed.setdefault(msisdn, {}).update({
+                            '_raw_line_usage': usage,
+                            '_raw_oob': oob,
                         })
                     self._mobilemeter = enriched
                 assert self._mobilemeter is not None
@@ -1208,11 +1213,10 @@ class SensorMobile(Entity):
         self._identifier = self._productSubscription.get('identifier') or self._productSubscription.get('msisdn')
         _LOGGER.debug(f"Mobile sensor sync: {self._identifier}")
 
-        mobileusage = await self._hass.async_add_executor_job(
-            lambda: self._data._session.mobileLineUsage(self._identifier)
-        )
+        cached = self._data._mobile_parsed.get(self._identifier, {})
+        mobileusage = cached.get('_raw_line_usage')
         if mobileusage is None:
-            _LOGGER.warning(f"mobileLineUsage returned None for {self._identifier}, keeping previous state")
+            _LOGGER.warning(f"mobileLineUsage not yet cached for {self._identifier}, keeping previous state")
             return
         _LOGGER.debug(f"mobileusage: {mobileusage}")
 
@@ -1283,23 +1287,18 @@ class SensorMobile(Entity):
 
         self._state = self._used_percentage_data
 
-        # Out-of-bundle usage (€) — fetched from old v3 API which is the only source for this
-        try:
-            oob = await self._hass.async_add_executor_job(
-                lambda: self._data._session.mobileOutOfBundle(self._identifier)
-            )
-            if oob is not None:
-                self._oob_total_eur = oob.get('usedUnits', '0')
-                self._oob_details = {
-                    d['type']: d['value']
-                    for d in (oob.get('details') or [])
-                    if d.get('value', 0) != 0 or True  # keep all for visibility
-                }
-        except Exception as e:
-            _LOGGER.debug(f"OOB fetch failed for {self._identifier}: {e}")
+        # Out-of-bundle usage (€) — read from cache populated by ComponentData._forced_update
+        oob = cached.get('_raw_oob')
+        if oob is not None:
+            self._oob_total_eur = oob.get('usedUnits', '0')
+            self._oob_details = {
+                d['type']: d['value']
+                for d in (oob.get('details') or [])
+                if d.get('value', 0) != 0 or True  # keep all for visibility
+            }
 
-        # Store parsed values in shared cache for sub-sensors
-        self._data._mobile_parsed[self._identifier] = {
+        # Store parsed values in shared cache for sub-sensors (update, not replace, to preserve _raw_* keys)
+        self._data._mobile_parsed.setdefault(self._identifier, {}).update({
             'usage_gb': self._usage_gb,
             'used_percentage_data': self._used_percentage_data,
             'period_days_left': self._period_days_left,
@@ -1310,7 +1309,7 @@ class SensorMobile(Entity):
             'voice_max_minutes': self._voice_max_minutes,
             'voice_unlimited': self._voice_unlimited,
             'last_update_formatted': self._last_update_formatted,
-        }
+        })
 
     async def async_will_remove_from_hass(self):
         _LOGGER.info("async_will_remove_from_hass " + NAME)
